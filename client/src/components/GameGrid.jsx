@@ -1,19 +1,13 @@
 import '../App.css'
 import React, { useEffect, useState } from "react";
-import GameAPI from '../services/api';
 import './GameStyles.css';
 
-function GameGrid({ board, rows, cols, canMove, setter, gameId, pendingMove, setPendingMove, setBoardBeforeMove }) {
+function GameGrid({ board, rows, cols, canMove, pendingMove, setPendingMove }) {
   // State
-  const [cells, setCells] = useState(board)
+  const cells = board
   const [currCell, setCurrCell] = useState(-1)
   const [showSelection, setShowSelection] = useState(false)
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-
-  useEffect(() => {
-    setCells(board)
-  }, [board])
 
   useEffect(() => {
   if (canMove) {
@@ -48,50 +42,23 @@ function GameGrid({ board, rows, cols, canMove, setter, gameId, pendingMove, set
     setError(null);
   };
 
-  // Handle tile selection and make move
-  const handleTileSelect = async (tileValue) => {
-    if (!gameId || currCell === -1) return;
-
-    setLoading(true);
+  // Selection is local. The parent commits it only when Submit Move is pressed.
+  const handleTileSelect = (tileValue) => {
+    if (!canMove || currCell === -1 || pendingMove) return;
+    setPendingMove({
+      row: Math.floor(currCell / cols),
+      col: currCell % cols,
+      tileValue,
+    });
+    setCurrCell(-1);
+    setShowSelection(false);
     setError(null);
-
-    try {
-      // Calculate row and col from flat index
-      const row = Math.floor(currCell / cols);
-      const col = currCell % cols;
-
-      setBoardBeforeMove([...cells]);
-      // Make move via API (tiles 9 and 10 in UI map to 9 and 10 in backend)
-      const response = await GameAPI.makeMove(gameId, row, col, tileValue);
-      
-
-      if (response.success) {
-        // Update local state with the new board
-        const newCells = [...cells];
-        newCells[currCell] = tileValue;
-        setCells(newCells);
-        
-        // Convert board back to use 11 for unresolved
-        const boardFor2D = newCells.map(tile => tile === -1 ? 11 : tile);
-        
-        // Update parent component
-        setter(boardFor2D, rows, cols);
-        
-        // Set pending move to indicate a move has been made
-        setPendingMove({ row, col, tileValue });
-        
-        setError(null);
-      } else {
-        setError(response.message || "Move failed");
-      }
-    } catch (err) {
-      setError(`Failed to make move: ${err.message}`);
-    } finally {
-      setLoading(false);
-      setCurrCell(-1);
-      setShowSelection(false);
-    }
   };
+
+  const displayCells = cells.map((tile, index) =>
+    pendingMove && index === pendingMove.row * cols + pendingMove.col
+      ? pendingMove.tileValue : tile
+  );
 
   // Display grid
   return (
@@ -100,13 +67,6 @@ function GameGrid({ board, rows, cols, canMove, setter, gameId, pendingMove, set
       {error && (
         <div className="game-alert game-alert-error">
           {error}
-        </div>
-      )}
-
-      {/* Loading indicator */}
-      {loading && (
-        <div style={{textAlign: 'center', color: '#2563eb', marginBottom: '8px', fontWeight: '600'}}>
-          Processing move...
         </div>
       )}
 
@@ -120,11 +80,11 @@ function GameGrid({ board, rows, cols, canMove, setter, gameId, pendingMove, set
             'gap': 0,
            }}
       >
-        {cells.map((cell, i) => {
-          const bgStyle = cells[i] === 0
+        {displayCells.map((cell, i) => {
+          const bgStyle = cell === 0
             ? {}
             : {
-              backgroundImage: `url(${bgImages[cells[i] - 1]})`,
+              backgroundImage: `url(${bgImages[cell - 1]})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
             };

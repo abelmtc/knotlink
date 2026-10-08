@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import KnotInput from "./components/KnotInput";
 import GameGrid from "./components/GameGrid";
 import GameAPI from "./services/api";
@@ -14,7 +14,6 @@ function KnottingUnknottingGame() {
     const [currMove, setCurrMove] = useState(0);
     const [remainingTerms, setRemainingTerms] = useState(board.filter(item => item === 11).length);
     const [pendingMove, setPendingMove] = useState(null);
-    const [boardBeforeMove, setBoardBeforeMove] = useState(null);
     
     // UI state
     const [loadBoard, setLoadBoard] = useState(false);
@@ -26,23 +25,19 @@ function KnottingUnknottingGame() {
     const [error, setError] = useState(null);
     const [message, setMessage] = useState("");
 
-    // Convert flat array to 2D board
-    const get2DBoard = () => {
-        const board2D = [];
-        for (let i = 0; i < rows; i++) {
-            board2D.push(board.slice(i * cols, (i + 1) * cols));
-        }
-        return board2D;
-    };
-
-    // Convert 2D board to flat array
-    const flattenBoard = (board2D) => {
-        return board2D.flat();
+    const applyStatus = (status) => {
+        setBoard(status.board.flat().map(tile => tile === -1 ? 11 : tile));
+        setRows(status.rows);
+        setCols(status.cols);
+        setRemainingTerms(status.unresolved_count);
+        setCurrMove(status.current_player === "knotter" ? 1 : 0);
+        setWinner(status.winner);
     };
 
     // Wrapper for KnotInput setter
     const wrappedSetter = (_board, _rows, _cols) => {
         setBoard(_board);
+        setRemainingTerms(_board.filter(tile => tile === 11).length);
         setRows(_rows);
         setCols(_cols);
         setLoadBoard(false);
@@ -69,6 +64,7 @@ function KnottingUnknottingGame() {
             const startingPlayer = firstMove === 0 ? "unknotter" : "knotter";
             const response = await GameAPI.createGame(board2D, startingPlayer);
             
+            applyStatus(response.status);
             setGameId(response.game_id);
             setGameBegan(true);
             setMessage("Game started!");
@@ -81,6 +77,7 @@ function KnottingUnknottingGame() {
 
     // Submit move to backend
     const doOnSubmitClick = async () => {
+        if (loading) return;
         if (!gameId || !pendingMove) {
             setError("No move to submit. Please select a crossing first.");
             return;
@@ -89,17 +86,13 @@ function KnottingUnknottingGame() {
         setLoading(true);
         setError(null);
         try {
-            // Get updated status from backend
-            const status = await GameAPI.getGameStatus(gameId);
-            
-            // Update local state
-            const newBoard = flattenBoard(status.board).map(tile => tile === -1 ? 11 : tile);
-            setBoard(newBoard);
-            setRemainingTerms(status.unresolved_count);
-            setCurrMove((currMove + 1) % 2);
-            setPendingMove(null); // Clear pending move after submission
-            setBoardBeforeMove(null);
-            
+            const response = await GameAPI.makeMove(
+                gameId, pendingMove.row, pendingMove.col, pendingMove.tileValue
+            );
+            const status = response.status;
+            applyStatus(status);
+            setPendingMove(null);
+
             // Check if game is over
             if (status.game_over && status.unresolved_count === 0) {
                 await classifyAndDetermineWinner();
@@ -107,29 +100,17 @@ function KnottingUnknottingGame() {
                 setMessage(`Move accepted. Next player: ${status.current_player}`);
             }
         } catch (err) {
-            setError(`Failed to get game status: ${err.message}`);
+            setError(`Failed to submit move: ${err.message}`);
         } finally {
             setLoading(false);
         }
     };
 
-    // Undoes the move that the player has done
-    const undoMove = async () => {
-        if (!boardBeforeMove || !pendingMove) return;
-
-        setLoading(true);
-        setError(null);
-        try {
-            await GameAPI.undoMove(gameId, pendingMove.row, pendingMove.col);
-            setBoard(boardBeforeMove);
-            setBoardBeforeMove(null);
-            setPendingMove(null);
-            setMessage("");
-        } catch (err) {
-            setError(`Failed to undo: ${err.message}`);
-        } finally {
-            setLoading(false);
-        }
+    // Cancel an unsubmitted selection without changing backend state.
+    const undoMove = () => {
+        if (loading) return;
+        setPendingMove(null);
+        setMessage("");
     };
 
     // Classify board and determine winner
@@ -145,9 +126,13 @@ function KnottingUnknottingGame() {
             setWinner(result.winner);
             setGameOver(true);
             
-            const winnerName = result.winner === "knotter" ? "Knotter" : "Unknotter";
-            const knotType = result.classification.is_unknot ? "an unknot" : "a knot";
-            setMessage(`Game Over! The result is ${knotType}. ${winnerName} wins!`);
+            if (result.winner && result.classification.is_unknot !== null) {
+                const winnerName = result.winner === "knotter" ? "Knotter" : "Unknotter";
+                const knotType = result.classification.is_unknot ? "an unknot" : "a knot";
+                setMessage(`Game Over! The result is ${knotType}. ${winnerName} wins!`);
+            } else {
+                setMessage("Board resolved. Classification is inconclusive; no winner determined.");
+            }
         } catch (err) {
             setError(`Failed to classify board: ${err.message}`);
         } finally {
@@ -173,17 +158,13 @@ function KnottingUnknottingGame() {
         setError(null);
         setMessage("");
         setPendingMove(null);
-        setBoardBeforeMove(null);
         setRows(5);
         setCols(5);
         setBoard([0, 2, 5, 5, 1, 2, 11, 5, 1, 6, 6, 6, 2, 11, 4, 6, 3, 11, 4, 0, 3, 5, 4, 0, 0]);
         setRemainingTerms(3);
+        setFirstMove(0);
+        setCurrMove(0);
     };
-
-    // Update remaining terms when board changes
-    useEffect(() => {
-        setRemainingTerms(board.filter(item => item === 11).length);
-    }, [board]);
 
     return (
         <div className="flex flex-col w-full gap-4 text-black">  
@@ -259,9 +240,9 @@ function KnottingUnknottingGame() {
                             onClick={undoMove}
                             disabled={loading || !pendingMove}
                             className="game-btn-primary game-btn-red"
-                            title={!pendingMove ? "Select a tile first to undo" : "Undo your selection"}
+                            title={!pendingMove ? "Select a tile first to cancel" : "Cancel your selection"}
                         >
-                            Undo
+                            Cancel Selection
                         </button>
                     </div>
                     <p style={{textAlign: 'center', fontWeight: '500'}}>
@@ -273,15 +254,21 @@ function KnottingUnknottingGame() {
             )}
 
             {/* Game over UI */}
+            {gameBegan && !gameOver && remainingTerms === 0 && (
+                <button onClick={classifyAndDetermineWinner} disabled={loading}>
+                    {loading ? "Classifying..." : "Retry classification"}
+                </button>
+            )}
+
             {gameOver && (
                 <div style={{display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center', margin: '16px 0'}}>
                     <div className="game-over-panel">
                         <h2>Game Over!</h2>
                         <p>
-                            Winner: <span style={{fontWeight: 'bold'}}>{winner === "knotter" ? "Knotter" : "Unknotter"}</span>
+                            Winner: <span style={{fontWeight: 'bold'}}>{winner === "knotter" ? "Knotter" : winner === "unknotter" ? "Unknotter" : "Undetermined"}</span>
                         </p>
                         <p style={{fontWeight: '600'}}>
-                            Result: {classification?.is_unknot ? "Unknot" : "Knot"}
+                            Result: {classification?.is_unknot === true ? "Unknot" : classification?.is_unknot === false ? "Knot" : "Unknown"}
                         </p>
                         {classification && (
                             <div style={{marginTop: '16px', fontSize: '0.875rem'}}>
@@ -307,12 +294,9 @@ function KnottingUnknottingGame() {
                 rows={rows} 
                 cols={cols} 
                 board={[...board]} 
-                canMove={gameBegan && !gameOver} 
-                setter={wrappedSetter}
-                gameId={gameId}
+                canMove={gameBegan && !gameOver && !loading}
                 pendingMove={pendingMove}
                 setPendingMove={setPendingMove}
-                setBoardBeforeMove={setBoardBeforeMove}
             />
         </div>
     );

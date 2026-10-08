@@ -15,7 +15,7 @@ KNOTLINK_ONBOARDING_SMOKE=1 server/.venv/bin/python scripts/cloud/smoke.py
 
 Installation keeps runtime dependencies outside the repository and installs backend packages in its ignored virtual environment. Startup uses local ports 5000, 5001 and 5173, and preserves MongoDB data at `/workspace/.knotlink/mongo`. Logs and process IDs go to `/workspace/knotlink-environment`. Existing environment overrides are respected. The smoke check assumes local MongoDB and a backend using `knotlink_onboarding`; do not run it against another database or remote services. It creates a game, verifies classification and persistence, then deletes only its own test game and result.
 
-The frontend uses its existing `VITE_API_URL` setting, defaulting to `http://localhost:5000/api`. No frontend proxy or gameplay behavior is changed by these setup scripts. Ports are used for internal validation; this setup does not establish a browser-accessible deployment.
+The frontend defaults to `/api`, proxied by Vite to Flask. `VITE_API_URL` can override the browser-facing API address, and `BACKEND_URL` can override the Vite proxy target. See [the connection guide](frontend-backend.md) for current submission behavior and production routing. These setup scripts themselves do not modify gameplay. Ports are used for internal validation; this setup does not establish a browser-accessible deployment.
 
 ## Original onboarding review
 
