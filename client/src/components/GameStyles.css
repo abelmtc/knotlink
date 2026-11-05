@@ -1,198 +1,49 @@
-/* client/src/components/GameStyles.css */
+/* Game-specific styles, themed with tokens from index.css */
 
-/* Primary Action Buttons */
 .game-btn-primary {
-  padding: 12px 24px;
-  font-size: 1.125rem;
-  font-weight: 600;
-  border-radius: 8px;
-  border: 2px solid #000;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 10px 22px; font-size: 1rem; font-weight: 600; border-radius: 999px;
+  border: 1.5px solid transparent; cursor: pointer;
+  transition: background-color .15s, transform .15s, box-shadow .15s;
 }
+.game-btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(13,24,33,.18); }
+.game-btn-primary:disabled { cursor: not-allowed; background: var(--color-sage-200) !important; color: var(--color-moss-500) !important; }
 
-.game-btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
-}
+.game-btn-blue  { background: var(--color-moss-600); color: var(--color-cream-50); }
+.game-btn-blue:hover:not(:disabled)  { background: var(--color-moss-700); }
+.game-btn-green { background: var(--color-honey-400); color: var(--color-forest-900); }
+.game-btn-green:hover:not(:disabled) { background: #aab97a; }
+.game-btn-red   { background: var(--color-cream-50); color: var(--color-berry-600); border-color: var(--color-berry-600); }
+.game-btn-red:hover:not(:disabled)   { background: #f6e3e1; }
+.game-btn-gray  { background: var(--color-cream-50); color: var(--color-forest-800); border-color: var(--color-sage-400); }
+.game-btn-gray:hover:not(:disabled)  { background: var(--color-sage-100); }
+.game-btn-large { padding: 14px 30px; font-size: 1.1rem; }
 
-.game-btn-primary:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.game-btn-primary:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-/* Blue Button (Submit, Load) */
-.game-btn-blue {
-  background-color: #2563eb;
-  color: white;
-}
-
-.game-btn-blue:hover:not(:disabled) {
-  background-color: #1d4ed8;
-}
-
-/* Green Button (Start Game) */
-.game-btn-green {
-  background-color: #16a34a;
-  color: white;
-}
-
-.game-btn-green:hover:not(:disabled) {
-  background-color: #15803d;
-}
-
-/* Red Button (Reset) */
-.game-btn-red {
-  background-color: #dc2626;
-  color: white;
-}
-
-.game-btn-red:hover:not(:disabled) {
-  background-color: #b91c1c;
-}
-
-/* Gray Button (Cancel) */
-.game-btn-gray {
-  background-color: #4b5563;
-  color: white;
-}
-
-.game-btn-gray:hover:not(:disabled) {
-  background-color: #374151;
-}
-
-/* Disabled state */
-.game-btn-primary:disabled {
-  background-color: #9ca3af !important;
-  border-color: #6b7280 !important;
-}
-
-/* Select Dropdown */
 .game-select {
-  padding: 8px 16px;
-  font-size: 1rem;
-  font-weight: 600;
-  border: 2px solid #000;
-  border-radius: 8px;
-  background-color: white;
-  color: black;
-  cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 8px 14px; font-weight: 600; border: 1.5px solid var(--color-sage-400);
+  border-radius: 10px; background: var(--color-cream-50); color: var(--color-forest-900);
 }
+.game-select:focus { outline: none; border-color: var(--color-moss-600); box-shadow: 0 0 0 3px rgba(52,73,102,.2); }
 
-.game-select:focus {
-  outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-}
+.game-alert { padding: 12px 16px; border-radius: 14px; border: 1.5px solid; margin: 0 auto; width: 90%; max-width: 640px; }
+.game-alert-error   { background: #f8e6e4; border-color: var(--color-berry-600); color: #6b2b27; }
+.game-alert-info    { background: var(--color-sage-100); border-color: var(--color-sage-400); color: var(--color-forest-800); }
+.game-alert-success { background: var(--color-sage-100); border-color: var(--color-moss-600); color: var(--color-forest-800); }
 
-/* Large Button (Play Again) */
-.game-btn-large {
-  padding: 16px 32px;
-  font-size: 1.25rem;
-}
-
-/* Alert Boxes */
-.game-alert {
-  padding: 16px;
-  border-radius: 8px;
-  border: 2px solid;
-  margin: 0 auto 16px;
-  width: 80%;
-  max-width: 600px;
-}
-
-.game-alert-error {
-  background-color: #fee2e2;
-  border-color: #dc2626;
-  color: #7f1d1d;
-}
-
-.game-alert-info {
-  background-color: #dbeafe;
-  border-color: #2563eb;
-  color: #1e3a8a;
-}
-
-.game-alert-success {
-  background-color: #d1fae5;
-  border-color: #16a34a;
-  color: #14532d;
-}
-
-/* Game Over Panel */
 .game-over-panel {
-  background-color: #d1fae5;
-  border: 2px solid #16a34a;
-  color: #14532d;
-  padding: 24px;
-  border-radius: 8px;
-  width: 80%;
-  max-width: 600px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  background: var(--color-sage-100); border: 1.5px solid var(--color-moss-600); color: var(--color-forest-900);
+  padding: 24px; border-radius: 20px; width: 90%; max-width: 560px; text-align: center;
 }
+.game-over-panel h2 { font-size: 1.9rem; margin-bottom: 8px; }
+.game-over-panel p { font-size: 1.05rem; margin-bottom: 6px; }
 
-.game-over-panel h2 {
-  font-size: 1.875rem;
-  font-weight: bold;
-  margin-bottom: 8px;
-}
-
-.game-over-panel p {
-  font-size: 1.125rem;
-  margin-bottom: 8px;
-}
-
-/* Selection Panel */
 .tile-selection-panel {
-  padding: 16px;
-  border: 2px solid #000;
-  border-radius: 8px;
-  background-color: #f3f4f6;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-  width: fit-content;
-  margin: 0 auto;
+  padding: 16px; border: 1.5px solid var(--color-sage-400); border-radius: 16px;
+  background: var(--color-sage-50); width: fit-content; margin: 0 auto;
+  --cell: 4rem; /* tile picker stays full size */
 }
+.tile-selection-grid { display: grid; grid-template-columns: repeat(2, 4rem); grid-template-rows: 4rem; gap: 16px; }
+.tile-option { cursor: pointer; transition: transform .15s; }
+.tile-option:hover { transform: scale(1.1); border-color: var(--color-honey-500); }
 
-.tile-selection-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 4rem);
-  grid-template-rows: repeat(1, 4rem);
-  gap: 16px;
-}
-
-.tile-option {
-  cursor: pointer;
-  transition: transform 0.2s ease;
-  border: 2px solid #9ca3af;
-}
-
-.tile-option:hover {
-  transform: scale(1.1);
-  border-color: #000;
-}
-
-/* Text Styles */
-.game-text-emphasis {
-  font-weight: 600;
-  font-size: 1.125rem;
-}
-
-.game-text-large {
-  font-size: 1.125rem;
-  font-weight: 600;
-}
-
-/* Spacing */
-.game-section {
-  margin: 16px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
+.game-text-emphasis, .game-text-large { font-weight: 600; font-size: 1.05rem; }
+.game-section { margin: 8px 0; display: flex; flex-direction: column; gap: 14px; }

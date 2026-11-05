@@ -1,117 +1,104 @@
 @import "tailwindcss";
 
+/* ---------- Theme: sage + cream ---------- */
+@theme {
+  /* Palette: 0d1821 · 344966 · b4cded · f0f4ef · bfcc94
+     Token names are kept from the first pass so existing classes still work:
+       cream = off-white surfaces      sage  = light blues (fills, borders)
+       moss  = slate blue (primary)    forest= deep navy (text)
+       honey = green accent (calls to action, playable cells) */
+  --color-cream-50: #f8faf7;
+  --color-cream-100: #f0f4ef;
+  --color-cream-200: #e1e9dd;
+  --color-sage-50: #eaf1fb;
+  --color-sage-100: #d9e6f8;
+  --color-sage-200: #b4cded;
+  --color-sage-400: #7f9cc4;
+  --color-moss-500: #5a7396;
+  --color-moss-600: #344966;
+  --color-moss-700: #2a3b54;
+  --color-forest-800: #1b2a3b;
+  --color-forest-900: #0d1821;
+  --color-honey-100: #e9efd3;
+  --color-honey-400: #bfcc94;
+  --color-honey-500: #93a45f;
+  --color-berry-600: #a94f4a;
+
+  --font-display: "Fraunces", Georgia, serif;
+  --font-sans: "DM Sans", system-ui, Avenir, Helvetica, Arial, sans-serif;
+}
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
   line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: white;
-
-  font-synthesis: none;
+  color: var(--color-forest-900);
+  background-color: var(--color-cream-100);
+  color-scheme: light;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  font-weight: 500;
-  color: #000dff;
-  text-decoration: underline;
-}
-a:hover {
-  color: #000dff;
 }
 
 body {
   margin: 0;
-  display: flex;
   min-width: 320px;
   min-height: 100vh;
+  background: var(--color-cream-100);
 }
 
-/* Grid layout styles for the 5x5 board */
-.grid-wrapper {
-  /* center horizontally and vertically */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
+#root { width: 100%; }
+
+h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.01em; }
+h1 { font-size: clamp(2rem, 4vw, 3rem); line-height: 1.1; }
+
+a { color: var(--color-moss-700); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
+a:hover { color: var(--color-forest-800); }
+
+:focus-visible { outline: 3px solid var(--color-honey-500); outline-offset: 2px; }
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+  padding: 0.5rem 1rem; border-radius: 999px; font-weight: 600; font-size: 0.95rem;
+  border: 1.5px solid var(--color-moss-600);
+  background: var(--color-cream-50); color: var(--color-moss-700);
+  cursor: pointer; transition: background-color .15s, color .15s, transform .15s;
+}
+.btn:hover { background: var(--color-sage-100); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-primary { background: var(--color-moss-600); color: var(--color-cream-50); }
+.btn-primary:hover { background: var(--color-moss-700); }
+.btn-warm { background: var(--color-honey-400); border-color: var(--color-honey-400); color: var(--color-forest-900); }
+.btn-warm:hover { background: #aab97a; }
+.btn-danger { border-color: var(--color-berry-600); color: var(--color-berry-600); }
+.btn-danger:hover { background: #f6e3e1; }
+
+.select {
+  padding: 0.4rem 0.75rem; border-radius: 10px; border: 1.5px solid var(--color-sage-400);
+  background: var(--color-cream-50); color: var(--color-forest-900); font-weight: 500;
 }
 
-.grid {
-  display: grid;
-  /* place it visually in the middle of the page */
-  margin: 0 auto;
-}
+/* ---------- Board cells ---------- */
+.grid-wrapper { display: flex; align-items: center; justify-content: center; width: 100%; }
+.grid { display: grid; margin: 0 auto; }
 
 .cell, .game-playable-cell, .game-playable-cell-inactive, .game-nonplayable-cell {
-  background-color: white;
-  border: 2px solid black;
-  box-sizing: border-box;
-  width: 4rem;
-  height: 4rem;
+  background-color: #fff;
+  border: 2px solid var(--color-forest-800);
+  box-sizing: border-box; width: var(--cell, 4rem); height: var(--cell, 4rem);
 }
-
-.game-playable-cell, .game-playable-cell-inactive {
-  border-color: rgba(66, 255, 66, 0.713);
-}
-
-.cell:hover, .game-playable-cell:hover {
-  transform: scale(1.1);
-}
-
+.game-playable-cell, .game-playable-cell-inactive { border-color: var(--color-honey-500); }
+.cell:hover, .game-playable-cell:hover { transform: scale(1.08); }
 .game-playable-cell-selected {
-  transform: scale(1.1);
-  border-color: rgba(66, 255, 66, 1) !important;
-  border-width: 4px !important;
-  box-shadow: 0 0 8px rgba(66, 255, 66, 0.8);
-  z-index: 10;
-  position: relative;
+  transform: scale(1.08);
+  border-color: var(--color-honey-500) !important; border-width: 4px !important;
+  box-shadow: 0 0 10px rgba(147, 164, 95, .85); z-index: 10; position: relative;
 }
 
-.cell2 {
-  background-color: gray;
-  border: 2px solid black;
-  box-sizing: border-box;
-  width: 4rem;
-  height: 4rem;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 4px;
-  border: 1px solid;
-  padding: 0px 0.5rem
-}
-button:hover {
-  background-color: rgb(240, 240, 240);
-}
-button:active {
-  box-shadow: 0px 1px 1px black;
-  top:3px
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: light;
-  }
+/* ---------- Scaling board ----------
+   Wrap a grid in .board-fit and set --cols and --gap on it; cells shrink
+   from 4rem so the whole board always fits the available width. */
+.board-fit {
+  container-type: inline-size;
+  --cell: min(4rem, calc((100cqw - var(--gap, 0px) * (var(--cols, 5) - 1)) / var(--cols, 5)));
 }

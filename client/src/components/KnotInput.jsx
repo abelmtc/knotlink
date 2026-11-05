@@ -46,10 +46,11 @@ function KnotInput({ setter }) {
         <>
             <textarea id="input-box" rows={8} cols={60} value={input}
                 onChange={handleInputChange}
-                className="border-1 rounded-lg"
+                aria-label="Board mosaic data"
+                className="w-full max-w-full min-w-0 border border-sage-400 rounded-lg bg-cream-50 p-3 text-forest-900"
             >    
             </textarea>
-            <button onClick={updateCells} className="px-2">load</button>
+            <button onClick={updateCells} className="btn">Load board</button>
         </>
     )
 }

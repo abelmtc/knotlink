@@ -95,7 +95,7 @@ function GameGrid({ board, rows, cols, canMove, setter, gameId, pendingMove, set
 
   // Display grid
   return (
-    <div className="grid-wrapper text-black flex flex-col mb-4">
+    <div className="grid-wrapper board-fit text-forest-900 flex flex-col mb-4" style={{ '--cols': cols, '--gap': '0px' }}>
       {/* Error display */}
       {error && (
         <div className="game-alert game-alert-error">
@@ -105,7 +105,7 @@ function GameGrid({ board, rows, cols, canMove, setter, gameId, pendingMove, set
 
       {/* Loading indicator */}
       {loading && (
-        <div style={{textAlign: 'center', color: '#2563eb', marginBottom: '8px', fontWeight: '600'}}>
+        <div style={{textAlign: 'center', color: 'var(--color-moss-700)', marginBottom: '8px', fontWeight: '600'}}>
           Processing move...
         </div>
       )}
@@ -115,8 +115,8 @@ function GameGrid({ board, rows, cols, canMove, setter, gameId, pendingMove, set
            role="grid" 
            aria-label={`${rows} by ${cols} grid`}
            style={{
-            'gridTemplateColumns': `repeat(${cols}, 4rem)`,
-            'gridTemplateRows': `repeat(${rows}, 4rem)`,
+            'gridTemplateColumns': `repeat(${cols}, var(--cell))`,
+            'gridTemplateRows': `repeat(${rows}, var(--cell))`,
             'gap': 0,
            }}
       >

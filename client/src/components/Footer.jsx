@@ -2,18 +2,16 @@ import React from "react";
 
 function Footer() {
     return (
-        <footer className="bg-gray-200 w-full border-t-1 border-color-gray-500 min-h-16">
-            <div className="text-black text-center px-16 pt-2">
-                This page was created by the Knot AI team in the &nbsp;
-                <a href="https://sites.math.washington.edu/ai/">
-                    UW Math AI Lab
-                </a>
-            </div>
-            <div className="text-black text-center px-16 py-2">
-                <p>&copy; 2025 Math AI Lab. All rights reserved.</p>
+        <footer className="bg-sage-100 w-full border-t border-sage-200 mt-8">
+            <div className="max-w-6xl mx-auto px-6 py-6 text-center text-forest-800 text-sm space-y-1">
+                <p>
+                    Created by the Knot AI team in the{' '}
+                    <a href="https://sites.math.washington.edu/ai/">UW Math AI Lab</a>
+                </p>
+                <p className="text-moss-700">&copy; 2025 Math AI Lab. All rights reserved.</p>
             </div>
         </footer>
-    )
+    );
 }
 
-export default Footer
+export default Footer;

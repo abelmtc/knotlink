@@ -16,7 +16,7 @@ function App() {
   return (
     <>  
       <Header refFunc={scrollToTop}></Header>
-      <div className='main-content min-h-[101vh] mt-18'>
+      <div ref={topOfPageRef} className='main-content min-h-[80vh]'>
         <Routes>
           {routes.map(( { path, element }, idx) => {
             console.log(path)

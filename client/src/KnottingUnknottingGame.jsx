@@ -1,21 +1,37 @@
 import React, { useState, useEffect } from "react";
 import KnotInput from "./components/KnotInput";
 import GameGrid from "./components/GameGrid";
+import BoardLayout, { Panel, Field, Segmented } from "./components/BoardLayout";
 import GameAPI from "./services/api";
 import "./components/GameStyles.css";
+
+const DEFAULT_BOARD = [0, 2, 5, 5, 1, 2, 11, 5, 1, 6, 6, 6, 2, 11, 4, 6, 3, 11, 4, 0, 3, 5, 4, 0, 0];
+
+function Pill({ label, value, tone = "sage" }) {
+    const tones = {
+        sage: "bg-sage-100 border-sage-200 text-forest-900",
+        honey: "bg-honey-100 border-honey-400 text-forest-900",
+    };
+    return (
+        <div className={`flex flex-col items-center px-4 py-1.5 rounded-2xl border ${tones[tone]}`}>
+            <span className="text-xs text-moss-700">{label}</span>
+            <span className="font-semibold">{value}</span>
+        </div>
+    );
+}
 
 function KnottingUnknottingGame() {
     // Game state
     const [gameId, setGameId] = useState(null);
     const [rows, setRows] = useState(5);
     const [cols, setCols] = useState(5);
-    const [board, setBoard] = useState([0, 2, 5, 5, 1, 2, 11, 5, 1, 6, 6, 6, 2, 11, 4, 6, 3, 11, 4, 0, 3, 5, 4, 0, 0]);
+    const [board, setBoard] = useState(DEFAULT_BOARD);
     const [firstMove, setFirstMove] = useState(0);
     const [currMove, setCurrMove] = useState(0);
     const [remainingTerms, setRemainingTerms] = useState(board.filter(item => item === 11).length);
     const [pendingMove, setPendingMove] = useState(null);
     const [boardBeforeMove, setBoardBeforeMove] = useState(null);
-    
+
     // UI state
     const [loadBoard, setLoadBoard] = useState(false);
     const [gameBegan, setGameBegan] = useState(false);
@@ -26,21 +42,8 @@ function KnottingUnknottingGame() {
     const [error, setError] = useState(null);
     const [message, setMessage] = useState("");
 
-    // Convert flat array to 2D board
-    const get2DBoard = () => {
-        const board2D = [];
-        for (let i = 0; i < rows; i++) {
-            board2D.push(board.slice(i * cols, (i + 1) * cols));
-        }
-        return board2D;
-    };
+    const flattenBoard = (board2D) => board2D.flat();
 
-    // Convert 2D board to flat array
-    const flattenBoard = (board2D) => {
-        return board2D.flat();
-    };
-
-    // Wrapper for KnotInput setter
     const wrappedSetter = (_board, _rows, _cols) => {
         setBoard(_board);
         setRows(_rows);
@@ -48,27 +51,17 @@ function KnottingUnknottingGame() {
         setLoadBoard(false);
     };
 
-    // Set first move
-    const setMoves = (event) => {
-        setFirstMove(Number(event.target.value));
-        setCurrMove(Number(event.target.value));
-    };
-
-    // Start the game by creating it in backend
     const startGame = async () => {
         setLoading(true);
         setError(null);
         try {
-            // Convert 11s to -1s for backend
             const backendBoard = board.map(tile => tile === 11 ? -1 : tile);
             const board2D = [];
             for (let i = 0; i < rows; i++) {
                 board2D.push(backendBoard.slice(i * cols, (i + 1) * cols));
             }
-            
             const startingPlayer = firstMove === 0 ? "unknotter" : "knotter";
             const response = await GameAPI.createGame(board2D, startingPlayer);
-            
             setGameId(response.game_id);
             setGameBegan(true);
             setMessage("Game started!");
@@ -79,28 +72,21 @@ function KnottingUnknottingGame() {
         }
     };
 
-    // Submit move to backend
     const doOnSubmitClick = async () => {
         if (!gameId || !pendingMove) {
             setError("No move to submit. Please select a crossing first.");
             return;
         }
-        
         setLoading(true);
         setError(null);
         try {
-            // Get updated status from backend
             const status = await GameAPI.getGameStatus(gameId);
-            
-            // Update local state
             const newBoard = flattenBoard(status.board).map(tile => tile === -1 ? 11 : tile);
             setBoard(newBoard);
             setRemainingTerms(status.unresolved_count);
             setCurrMove((currMove + 1) % 2);
-            setPendingMove(null); // Clear pending move after submission
+            setPendingMove(null);
             setBoardBeforeMove(null);
-            
-            // Check if game is over
             if (status.game_over && status.unresolved_count === 0) {
                 await classifyAndDetermineWinner();
             } else {
@@ -113,10 +99,8 @@ function KnottingUnknottingGame() {
         }
     };
 
-    // Undoes the move that the player has done
     const undoMove = async () => {
         if (!boardBeforeMove || !pendingMove) return;
-
         setLoading(true);
         setError(null);
         try {
@@ -132,19 +116,15 @@ function KnottingUnknottingGame() {
         }
     };
 
-    // Classify board and determine winner
     const classifyAndDetermineWinner = async () => {
         if (!gameId) return;
-        
         setLoading(true);
         setError(null);
         try {
             const result = await GameAPI.classifyBoard(gameId);
-            
             setClassification(result.classification);
             setWinner(result.winner);
             setGameOver(true);
-            
             const winnerName = result.winner === "knotter" ? "Knotter" : "Unknotter";
             const knotType = result.classification.is_unknot ? "an unknot" : "a knot";
             setMessage(`Game Over! The result is ${knotType}. ${winnerName} wins!`);
@@ -155,16 +135,11 @@ function KnottingUnknottingGame() {
         }
     };
 
-    // Reset game
     const resetGame = async () => {
         if (gameId) {
-            try {
-                await GameAPI.deleteGame(gameId);
-            } catch (err) {
-                console.error("Failed to delete game:", err);
-            }
+            try { await GameAPI.deleteGame(gameId); }
+            catch (err) { console.error("Failed to delete game:", err); }
         }
-        
         setGameId(null);
         setGameBegan(false);
         setGameOver(false);
@@ -176,145 +151,133 @@ function KnottingUnknottingGame() {
         setBoardBeforeMove(null);
         setRows(5);
         setCols(5);
-        setBoard([0, 2, 5, 5, 1, 2, 11, 5, 1, 6, 6, 6, 2, 11, 4, 6, 3, 11, 4, 0, 3, 5, 4, 0, 0]);
+        setBoard(DEFAULT_BOARD);
         setRemainingTerms(3);
     };
 
-    // Update remaining terms when board changes
     useEffect(() => {
         setRemainingTerms(board.filter(item => item === 11).length);
     }, [board]);
 
-    return (
-        <div className="flex flex-col w-full gap-4 text-black">  
-            {/* Error display */}
+    const turnName = currMove === 0 ? "Unknotter" : "Knotter";
+
+    const alerts = (
+        <>
             {error && (
-                <div className="game-alert game-alert-error">
-                    <strong className="font-bold">Error: </strong>
-                    <span>{error}</span>
+                <div className="game-alert game-alert-error !w-full" role="alert">
+                    <strong>Error: </strong><span>{error}</span>
                 </div>
             )}
+            {message && !error && <div className="game-alert game-alert-info !w-full">{message}</div>}
+        </>
+    );
 
-            {/* Message display */}
-            {message && !error && (
-                <div className="game-alert game-alert-info">
-                    {message}
-                </div>
-            )}
+    const panel = (
+        <>
+            {alerts}
 
-            {/* Game setup */}
+            {/* Phase 1: setup */}
             {!gameBegan && (
-                <>
-                    <div className="game-section" style={{alignItems: 'center', width: '80%', margin: '0 auto'}}>
-                        {!loadBoard && (
-                            <button 
-                                onClick={() => setLoadBoard(true)}
-                                className="game-btn-primary game-btn-blue game-btn-large"
-                            >
-                                Load Game Board
-                            </button>
-                        )}
-                        {loadBoard && <KnotInput setter={wrappedSetter} />}
-                    </div>
-                    <div style={{display: 'flex', flexDirection: 'row', gap: '16px', justifyContent: 'center', alignItems: 'center', margin: '16px 0'}}>
-                        <button 
-                            onClick={startGame}
-                            disabled={loading}
-                            className="game-btn-primary game-btn-green game-btn-large"
-                        >
-                            {loading ? "Starting..." : "Start Game"}
-                        </button>
-                        <p className="game-text-emphasis">First move:</p>
-                        <select 
-                            className="game-select" 
-                            onChange={setMoves}
-                            defaultValue={0}
-                            disabled={loading}
-                        >
-                            <option value={0}>Unknotter</option>
-                            <option value={1}>Knotter</option>
-                        </select>
-                    </div>
-                </>
-            )}
-
-            {/* Active game UI */}
-            {gameBegan && !gameOver && (
-                <div className="game-section">
-                    <div style={{display: 'flex', flexDirection: 'row', gap: '16px', justifyContent: 'center', alignItems: 'center'}}>
-                        <p className="game-text-large">
-                            Current move: {currMove === 0 ? "Unknotter" : "Knotter"}
-                        </p>
-                        <p className="game-text-emphasis">Remaining crossings: {remainingTerms}</p>
-                        <p>First move: {firstMove === 0 ? "Unknotter" : "Knotter"}</p>
-                        <button 
-                            onClick={doOnSubmitClick}
-                            disabled={loading || !pendingMove}
-                            className="game-btn-primary game-btn-blue"
-                            title={!pendingMove ? "Select a crossing first" : "Submit your move"}
-                        >
-                            {loading ? "Processing..." : "Submit Move"}
-                        </button>
-                        <button 
-                            onClick={undoMove}
-                            disabled={loading || !pendingMove}
-                            className="game-btn-primary game-btn-red"
-                            title={!pendingMove ? "Select a tile first to undo" : "Undo your selection"}
-                        >
-                            Undo
-                        </button>
-                    </div>
-                    <p style={{textAlign: 'center', fontWeight: '500'}}>
-                        {pendingMove 
-                            ? "Move selected! Click 'Submit Move' to confirm." 
-                            : "Select a highlighted cell below to resolve its crossing"}
-                    </p>
-                </div>
-            )}
-
-            {/* Game over UI */}
-            {gameOver && (
-                <div style={{display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center', margin: '16px 0'}}>
-                    <div className="game-over-panel">
-                        <h2>Game Over!</h2>
-                        <p>
-                            Winner: <span style={{fontWeight: 'bold'}}>{winner === "knotter" ? "Knotter" : "Unknotter"}</span>
-                        </p>
-                        <p style={{fontWeight: '600'}}>
-                            Result: {classification?.is_unknot ? "Unknot" : "Knot"}
-                        </p>
-                        {classification && (
-                            <div style={{marginTop: '16px', fontSize: '0.875rem'}}>
-                                <p style={{fontWeight: '600'}}>Classification details:</p>
-                                <ul style={{listStyleType: 'disc', listStylePosition: 'inside', marginLeft: '16px'}}>
-                                    <li>Method: {classification.reason}</li>
-                                    <li>Number of crossings: {classification.num_crossings}</li>
-                                </ul>
-                            </div>
-                        )}
-                    </div>
-                    <button 
-                        onClick={resetGame}
-                        className="game-btn-primary game-btn-blue game-btn-large"
-                    >
-                        Play Again
+                <Panel title="New game">
+                    <Field label="Who moves first?">
+                        <Segmented
+                            label="First move"
+                            value={firstMove}
+                            onChange={(v) => { setFirstMove(v); setCurrMove(v); }}
+                            options={[{ value: 0, label: "Unknotter" }, { value: 1, label: "Knotter" }]}
+                        />
+                    </Field>
+                    <button onClick={startGame} disabled={loading}
+                            className="game-btn-primary game-btn-green game-btn-large w-full">
+                        {loading ? "Starting..." : "Start game"}
                     </button>
-                </div>
+                    <button onClick={() => setLoadBoard(true)} className="btn w-full">
+                        Load custom board
+                    </button>
+                </Panel>
             )}
 
-            {/* Game grid */}
-            <GameGrid 
-                rows={rows} 
-                cols={cols} 
-                board={[...board]} 
-                canMove={gameBegan && !gameOver} 
-                setter={wrappedSetter}
-                gameId={gameId}
-                pendingMove={pendingMove}
-                setPendingMove={setPendingMove}
-                setBoardBeforeMove={setBoardBeforeMove}
+            {/* Phase 2: playing */}
+            {gameBegan && !gameOver && (
+                <Panel title="Your move">
+                    <div className="grid grid-cols-2 gap-3">
+                        <Pill label="Current move" value={turnName} tone={currMove === 0 ? "sage" : "honey"} />
+                        <Pill label="Crossings left" value={remainingTerms} />
+                    </div>
+                    <p className="text-sm text-moss-700">
+                        {pendingMove
+                            ? "Move selected. Press Submit move to confirm."
+                            : "Pick a highlighted cell on the board to resolve its crossing."}
+                    </p>
+                    <button onClick={doOnSubmitClick} disabled={loading || !pendingMove}
+                            className="game-btn-primary game-btn-blue w-full">
+                        {loading ? "Processing..." : "Submit move"}
+                    </button>
+                    <button onClick={undoMove} disabled={loading || !pendingMove}
+                            className="game-btn-primary game-btn-red w-full">
+                        Undo
+                    </button>
+                </Panel>
+            )}
+
+            {/* Phase 3: finished */}
+            {gameOver && (
+                <Panel title="Game over">
+                    <div className="game-over-panel !w-full !p-4">
+                        <p>Winner</p>
+                        <h2 className="!mb-1">{winner === "knotter" ? "Knotter" : "Unknotter"}</h2>
+                        <p className="font-semibold">Result: {classification?.is_unknot ? "Unknot" : "Knot"}</p>
+                        {classification && (
+                            <p className="text-sm text-moss-700">
+                                {classification.reason} &middot; {classification.num_crossings} crossings
+                            </p>
+                        )}
+                    </div>
+                    <button onClick={resetGame} className="game-btn-primary game-btn-blue game-btn-large w-full">
+                        Play again
+                    </button>
+                </Panel>
+            )}
+        </>
+    );
+
+    return (
+        <>
+            <BoardLayout
+                title="Knotting–Unknotting Game"
+                subtitle="Take turns resolving crossings. Knotter wants a knot; Unknotter wants the unknot."
+                board={
+                    <GameGrid
+                        rows={rows}
+                        cols={cols}
+                        board={[...board]}
+                        canMove={gameBegan && !gameOver}
+                        setter={wrappedSetter}
+                        gameId={gameId}
+                        pendingMove={pendingMove}
+                        setPendingMove={setPendingMove}
+                        setBoardBeforeMove={setBoardBeforeMove}
+                    />
+                }
+                panel={panel}
             />
-        </div>
+
+            {loadBoard && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-forest-900/50 p-4"
+                     onClick={() => setLoadBoard(false)}>
+                    <div role="dialog" aria-modal="true" aria-label="Load a custom board"
+                         className="bg-cream-50 rounded-2xl border border-sage-200 shadow-xl p-6 w-full max-w-xl flex flex-col items-center gap-3"
+                         onClick={(e) => e.stopPropagation()}>
+                        <h2 className="text-xl font-semibold self-start">Load a custom board</h2>
+                        <p className="text-sm text-moss-700 self-start">
+                            Paste rows of tile numbers, like [[0, 2, 1], [2, 11, 1], ...]. Use -1 or 11 for unresolved crossings.
+                        </p>
+                        <KnotInput setter={wrappedSetter} />
+                        <button className="btn" onClick={() => setLoadBoard(false)}>Cancel</button>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }
 

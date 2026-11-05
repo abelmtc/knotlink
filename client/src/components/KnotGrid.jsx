@@ -110,24 +110,25 @@ function KnotGrid({ rows, cols, resetSignal, assembleSignal,
 
   // Display grid
   return (
-    <div className="grid-wrapper text-black flex flex-col mb-4">
+    <div className="grid-wrapper board-fit text-forest-900 flex flex-col mb-4" style={{ '--cols': cols, '--gap': gap }}>
       {importSignal && 
-      <div className="flex flex-col mb-4 items-center">
+      <div className="flex flex-col mb-4 items-center w-full">
         <KnotInput setter={wrappedSetter} />
       </div>}
       {exportSignal && 
-      <div className="flex flex-col mb-4 items-center">
+      <div className="flex flex-col mb-4 items-center w-full">
         <textarea id="input-box" rows={8} cols={60} value={getStringRep()}
-                className="border-1 rounded-lg caret-transparent"
+                readOnly aria-label="Exported board mosaic data"
+                className="w-full max-w-full min-w-0 border border-sage-400 rounded-lg bg-cream-50 p-3 caret-transparent"
         >
         </textarea>  
       </div>}
       <div className="grid"
            role="grid" 
-           aria-label="5 by 5 grid"
+           aria-label={`${rows} by ${cols} grid`}
            style={{
-            'gridTemplateColumns': `repeat(${cols}, 4rem)`,
-            'gridTemplateRows': `repeat(${rows}, 4rem)`,
+            'gridTemplateColumns': `repeat(${cols}, var(--cell))`,
+            'gridTemplateRows': `repeat(${rows}, var(--cell))`,
             'gap': `${gap}`,
            }}
       >
@@ -167,11 +168,12 @@ function KnotGrid({ rows, cols, resetSignal, assembleSignal,
       {showSelection && 
         <div onClick={() => {setShowSelection(false)}} className='mt-4'>
           <p>Select a tile:</p>
-          <div className="grid p-4 border rounded-lg bg-gray-200" 
+          <div className="grid p-4 border rounded-lg bg-sage-100"
                role="grid"
                style={{
-                 'gridTemplateColumns': `repeat(5, 4rem)`,
-                 'gridTemplateRows': `repeat(3, 4rem)`
+                 '--cell': 'min(4rem, calc((100cqw - 2rem - 2px) / 5))',
+                 'gridTemplateColumns': `repeat(5, var(--cell))`,
+                 'gridTemplateRows': `repeat(3, var(--cell))`
               }}
             >
               {Array.from({ length: 11 }).map((_, i) => { /* TODO: ADD HANDLING FOR T_11 */
