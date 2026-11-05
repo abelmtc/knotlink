@@ -1,0 +1,35 @@
+# Full stack without the SageMath classifier repo:
+#   docker compose -f docker-compose.standalone.yml up --build
+#   -> app at http://localhost:8080 (API also at http://localhost:5000/api)
+# The backend uses the built-in Jones-polynomial classifier (CLASSIFIER_MODE=auto falls back to it
+# because no Sage service runs in this stack). Use docker-compose.yml for the Sage setup.
+services:
+  mongo:
+    image: mongo:7.0
+    volumes:
+      - mongo-data:/data/db
+
+  game-backend:
+    build:
+      context: ./server
+    ports:
+      - "5000:5000"
+    environment:
+      - CLASSIFIER_MODE=builtin
+      - MONGODB_URI=mongodb://mongo:27017/
+      - MONGODB_DB=knotlink
+    depends_on:
+      - mongo
+
+  client:
+    build:
+      context: ./client
+      args:
+        VITE_API_URL: /api
+    ports:
+      - "8080:80"
+    depends_on:
+      - game-backend
+
+volumes:
+  mongo-data:

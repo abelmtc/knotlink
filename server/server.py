@@ -10,6 +10,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from game_state import GameState, Player, create_game
 from database import init_db, save_game_result
+from knot_classifier import classify_mosaic, BoardError
 from typing import Dict
 import uuid
 import requests
@@ -26,6 +27,54 @@ except Exception as e:
 
 active_games: Dict[str, GameState] = {}
 CLASSIFIER_URL = os.environ.get('CLASSIFIER_URL', 'http://localhost:5001/api/classify')
+# CLASSIFIER_MODE:
+#   "sage"    - only use the SageMath classifier service at CLASSIFIER_URL (previous behavior)
+#   "builtin" - only use the pure-Python classifier in knot_classifier.py (no Sage needed)
+#   "auto"    - try the Sage service, fall back to the built-in classifier if it is unreachable
+#               or rejects the board (default)
+CLASSIFIER_MODE = os.environ.get('CLASSIFIER_MODE', 'auto').strip().lower()
+
+
+class ClassifierUnavailable(Exception):
+    def __init__(self, payload, status):
+        super().__init__(payload.get("error"))
+        self.payload, self.status = payload, status
+
+
+def _builtin_classify(board):
+    try:
+        return classify_mosaic(board)
+    except BoardError as e:
+        raise ClassifierUnavailable({"error": "Invalid board", "details": str(e)}, 400)
+
+
+def run_classifier(board):
+    """Classify a board with the configured classifier. Returns the classifier's JSON dict."""
+    if CLASSIFIER_MODE == 'builtin':
+        return _builtin_classify(board)
+    try:
+        response = requests.post(CLASSIFIER_URL, json={'mosaic': board}, timeout=10)
+    except requests.exceptions.ConnectionError:
+        if CLASSIFIER_MODE == 'auto':
+            return _builtin_classify(board)
+        raise ClassifierUnavailable({
+            "error": "Cannot connect to classifier service",
+            "hint": "Make sure classifier_service.py is running on port 5001, or set CLASSIFIER_MODE=auto"
+        }, 503)
+    except requests.exceptions.Timeout:
+        if CLASSIFIER_MODE == 'auto':
+            return _builtin_classify(board)
+        raise ClassifierUnavailable({"error": "Classifier service timeout"}, 504)
+    if response.status_code == 200:
+        return response.json()
+    if CLASSIFIER_MODE == 'auto':
+        return _builtin_classify(board)
+    try:
+        details = response.json()
+    except ValueError:
+        details = response.text
+    raise ClassifierUnavailable({"error": "Classifier service error", "details": details}, response.status_code)
+
 
 @app.route('/api/game/new', methods=['POST'])
 def new_game():
@@ -126,11 +175,19 @@ def undo_move(game_id: str):
         if row < 0 or row >= game.rows or col < 0 or col >= game.cols:
             return jsonify({"error": f"Position ({row}, {col}) is out of bounds"}), 400
 
-        # Restore cell to unresolved and remove last move from history
+        # Restore cell to unresolved, remove that move from history and give the turn back
+        # to the player who made it (otherwise the server's current_player drifts out of
+        # sync with the client after an undo).
         game.board[row][col] = -1
-        if game.move_history:
-            game.move_history.pop()
+        for k in range(len(game.move_history) - 1, -1, -1):
+            m = game.move_history[k]
+            if m.row == row and m.col == col:
+                game.move_history.pop(k)
+                game.current_player = m.player
+                break
         game.game_over = False
+        game.winner = None
+        game.is_unknot = None
 
         return jsonify({
             "success": True,
@@ -158,71 +215,58 @@ def classify_board(game_id: str):
         # Check if there are any unresolved crossings
         unresolved = game.has_unresolved_crossings()
         
-        # Call the classifier service
-        response = requests.post(CLASSIFIER_URL, json={'mosaic': board}, timeout=10)
+        # Call the classifier (Sage service and/or built-in, see CLASSIFIER_MODE)
+        try:
+            classifier_result = run_classifier(board)
+        except ClassifierUnavailable as e:
+            return jsonify(e.payload), e.status
+
+        # Determine winner if game is complete
+        if not unresolved and game.game_over:
+            is_unknot = classifier_result.get('is_unknot')
+            if is_unknot is not None:
+                game.is_unknot = is_unknot
+                game.winner = Player.UNKNOTTER if is_unknot else Player.KNOTTER
+
+                # Build move sequence for storage
+                move_sequence = [
+                    {
+                        "row": m.row,
+                        "col": m.col,
+                        "tile": m.new_tile,
+                        "player": m.player.value
+                    }
+                    for m in game.move_history
+                ]
+
+                # Save every completed game to MongoDB
+                try:
+                    save_game_result(
+                        game_id=game_id,
+                        initial_board=getattr(game, 'initial_board', board),
+                        final_board=board,
+                        rows=game.rows,
+                        cols=game.cols,
+                        num_unresolved=sum(
+                            1 for row in getattr(game, 'initial_board', board)
+                            for cell in row if cell == -1
+                        ),
+                        starting_player=getattr(game, 'starting_player_str', 'unknotter'),
+                        winner=game.winner.value if game.winner else None,
+                        move_sequence=move_sequence,
+                        classification=classifier_result,
+                    )
+                except Exception as db_err:
+                    print(f"Warning: Failed to save game to database: {db_err}")
         
-        if response.status_code == 200:
-            classifier_result = response.json()
-            print("Classifier result:", classifier_result, flush=True)  # ADD THIS TEMPORARILY
-            
-            # Determine winner if game is complete
-            if not unresolved and game.game_over:
-                is_unknot = classifier_result.get('is_unknot')
-                if is_unknot is not None:
-                    game.is_unknot = is_unknot
-                    game.winner = Player.UNKNOTTER if is_unknot else Player.KNOTTER
-
-                    # Build move sequence for storage
-                    move_sequence = [
-                        {
-                            "row": m.row,
-                            "col": m.col,
-                            "tile": m.new_tile,
-                            "player": m.player.value
-                        }
-                        for m in game.move_history
-                    ]
-
-                    # Save every completed game to MongoDB
-                    try:
-                        save_game_result(
-                            game_id=game_id,
-                            initial_board=getattr(game, 'initial_board', board),
-                            final_board=board,
-                            rows=game.rows,
-                            cols=game.cols,
-                            num_unresolved=sum(
-                                1 for row in getattr(game, 'initial_board', board)
-                                for cell in row if cell == -1
-                            ),
-                            starting_player=getattr(game, 'starting_player_str', 'unknotter'),
-                            winner=game.winner.value if game.winner else None,
-                            move_sequence=move_sequence,
-                            classification=classifier_result,
-                        )
-                    except Exception as db_err:
-                        print(f"Warning: Failed to save game to database: {db_err}")
-            
-            return jsonify({
-                "board": board,
-                "classification": classifier_result,
-                "game_complete": not unresolved,
-                "unresolved_crossings": len(game.get_unresolved_positions()),
-                "winner": game.winner.value if game.winner else None
-            }), 200
-        else:
-            return jsonify({
-                "error": "Classifier service error",
-                "details": response.json()
-            }), response.status_code
-            
-    except requests.exceptions.ConnectionError:
         return jsonify({
-            "error": "Cannot connect to classifier service",
-            "hint": "Make sure classifier_service.py is running on port 5001"
-        }), 503
-    except requests.exceptions.Timeout:
-        return jsonify({"error": "Classifier service timeout"}), 504
+            "board": board,
+            "classification": classifier_result,
+            "game_complete": not unresolved,
+            "unresolved_crossings": len(game.get_unresolved_positions()),
+            "winner": game.winner.value if game.winner else None
+        }), 200
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -309,7 +353,8 @@ def delete_game(game_id: str):
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint."""
-    return jsonify({"status": "healthy", "active_games": len(active_games)}), 200
+    return jsonify({"status": "healthy", "active_games": len(active_games),
+                    "classifier_mode": CLASSIFIER_MODE}), 200
 
 
 @app.route('/api/research/interesting-games', methods=['GET'])

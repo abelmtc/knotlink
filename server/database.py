@@ -11,9 +11,18 @@ from pymongo import MongoClient, ASCENDING
 from pymongo.errors import ConnectionFailure
 
 
+_client = None
+
+
 def get_client():
-    uri = os.environ.get("MONGODB_URI", "mongodb://localhost:27017/")
-    return MongoClient(uri)
+    """One shared client. A short server-selection timeout keeps API requests (e.g. /classify)
+    from blocking for pymongo's 30 s default when MongoDB is not running."""
+    global _client
+    if _client is None:
+        uri = os.environ.get("MONGODB_URI", "mongodb://localhost:27017/")
+        timeout_ms = int(os.environ.get("MONGODB_TIMEOUT_MS", "2000"))
+        _client = MongoClient(uri, serverSelectionTimeoutMS=timeout_ms)
+    return _client
 
 
 def get_collection():

@@ -266,6 +266,18 @@ curl -X POST http://localhost:5000/api/game/$GAME_ID/classify
 
 ## Configuration
 
+### Classifier mode
+
+`CLASSIFIER_MODE` chooses how finished boards are classified:
+
+- `auto` (default): call the Sage classifier at `CLASSIFIER_URL`; if it is unreachable or rejects
+  the board, use the built-in pure-Python classifier (`knot_classifier.py`, Jones polynomial via
+  the Kauffman bracket, same response fields).
+- `sage`: only the Sage service (returns 503 when it is down, the previous behavior).
+- `builtin`: never call Sage. The game server then runs on its own, with no `knot_mosaics` checkout.
+
+See `DEPLOY.md` in the repository root for running the full stack.
+
 ### Classifier Service URL
 
 Set via environment variable:
