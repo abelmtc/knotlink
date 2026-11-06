@@ -1,0 +1,1822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KnotLink Strategy Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream-50:#f8faf7; --cream-100:#f0f4ef; --sage-50:#eaf1fb; --sage-100:#d9e6f8; --sage-200:#b4cded; --sage-400:#7f9cc4;
+    --moss-500:#5a7396; --moss-600:#344966; --moss-700:#2a3b54; --forest-800:#1b2a3b; --forest-900:#0d1821;
+    --honey-100:#e9efd3; --honey-400:#bfcc94; --honey-500:#93a45f; --berry-600:#a94f4a; --berry-100:#f6e3e1;
+    --radius:16px;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; background:var(--cream-100); color:var(--forest-900); font-family:"DM Sans",system-ui,sans-serif; line-height:1.5; }
+  h1,h2,h3 { font-family:"Fraunces",Georgia,serif; letter-spacing:-.01em; margin:0; font-weight:600; }
+  button { font:inherit; }
+  header { position:sticky; top:0; z-index:20; background:rgba(248,250,247,.95); backdrop-filter:blur(6px); border-bottom:1px solid var(--sage-200); }
+  .bar { max-width:1240px; margin:0 auto; display:flex; flex-wrap:wrap; align-items:center; gap:8px 20px; padding:10px 18px; }
+  .brand { display:flex; align-items:center; gap:10px; font-family:"Fraunces",serif; font-size:1.45rem; font-weight:600; }
+  .brand small { font-family:"DM Sans"; font-size:.78rem; font-weight:500; color:var(--moss-500); letter-spacing:.12em; text-transform:uppercase; }
+  nav { display:flex; flex-wrap:wrap; gap:4px; margin-left:auto; }
+  nav a { padding:6px 14px; border-radius:999px; color:var(--forest-800); text-decoration:none; font-weight:500; }
+  nav a:hover { background:var(--sage-100); }
+  nav a.active { background:var(--moss-600); color:var(--cream-50); }
+  main { max-width:1240px; margin:0 auto; padding:24px 18px 60px; }
+  .lede { color:var(--moss-600); max-width:780px; margin:6px 0 18px; }
+  .card { background:var(--cream-50); border:1px solid var(--sage-200); border-radius:var(--radius); box-shadow:0 1px 2px rgba(13,24,33,.05); }
+  .pad { padding:18px; }
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:8px 16px; border-radius:999px; border:1.5px solid var(--moss-600); background:var(--cream-50); color:var(--moss-700); font-weight:600; cursor:pointer; transition:background .15s, transform .1s; }
+  .btn:hover:not(:disabled) { background:var(--sage-100); }
+  .btn:active:not(:disabled) { transform:translateY(1px); }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+  .btn.primary { background:var(--moss-600); color:var(--cream-50); }
+  .btn.primary:hover:not(:disabled) { background:var(--moss-700); }
+  .btn.warm { background:var(--honey-400); border-color:var(--honey-400); color:var(--forest-900); }
+  .btn.small { padding:4px 11px; font-size:.86rem; }
+  .btn.block { width:100%; }
+  .seg { display:flex; border:1.5px solid var(--sage-400); border-radius:999px; padding:2px; background:var(--cream-50); }
+  .seg button { flex:1; border:0; background:transparent; padding:6px 10px; border-radius:999px; font-weight:600; color:var(--forest-800); cursor:pointer; font-size:.9rem; }
+  .seg button[aria-pressed="true"] { background:var(--moss-600); color:var(--cream-50); }
+  label.f { display:flex; flex-direction:column; gap:5px; font-size:.86rem; font-weight:500; color:var(--moss-600); }
+  select, input[type=text], textarea { font:inherit; padding:7px 10px; border-radius:10px; border:1.5px solid var(--sage-400); background:var(--cream-50); color:var(--forest-900); }
+  textarea { font-family:ui-monospace,Menlo,monospace; font-size:.82rem; }
+  .muted { color:var(--moss-500); font-size:.88rem; }
+  .pill { display:inline-flex; align-items:center; gap:5px; padding:2px 10px; border-radius:999px; font-size:.78rem; font-weight:600; border:1px solid var(--sage-200); background:var(--sage-50); color:var(--forest-800); white-space:nowrap; }
+  .pill.k { background:var(--berry-100); border-color:#e4b9b5; color:#6b2b27; }
+  .pill.u { background:var(--honey-100); border-color:var(--honey-400); color:#3f4a1b; }
+  .pill.flip { background:var(--moss-600); border-color:var(--moss-600); color:var(--cream-50); }
+  .toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:16px; }
+  .grid-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:16px; }
+  .kcard { cursor:pointer; overflow:hidden; display:flex; flex-direction:column; transition:transform .12s, box-shadow .12s; }
+  .kcard:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(13,24,33,.12); }
+  .kcard .thumb { background:#fff; border-bottom:1px solid var(--sage-200); height:150px; display:flex; align-items:center; justify-content:center; padding:10px; }
+  .kcard .thumb svg { max-width:100%; max-height:130px; }
+  .kcard .body { padding:12px 14px; display:flex; flex-direction:column; gap:6px; flex:1; }
+  .kcard .fam { font-size:.72rem; letter-spacing:.12em; text-transform:uppercase; color:var(--moss-500); font-weight:600; }
+  .kcard h3 { font-size:1.08rem; }
+  .row { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  table { width:100%; border-collapse:collapse; font-size:.9rem; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--sage-200); vertical-align:middle; }
+  th { font-size:.76rem; text-transform:uppercase; letter-spacing:.08em; color:var(--moss-500); font-weight:600; background:var(--cream-100); position:sticky; top:0; }
+  tbody tr.click { cursor:pointer; }
+  tbody tr.click:hover { background:var(--sage-50); }
+  .tablewrap { overflow:auto; max-height:70vh; }
+  .playgrid { display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:20px; align-items:start; }
+  @media (max-width:900px) { .playgrid { grid-template-columns:1fr; } }
+  .boardwrap { position:relative; background:#fff; border-radius:var(--radius); border:1px solid var(--sage-200); padding:14px; display:flex; justify-content:center; }
+  .boardwrap svg { width:100%; height:auto; max-height:72vh; }
+  .side { display:flex; flex-direction:column; gap:14px; position:sticky; top:76px; }
+  .side h2 { font-size:1.2rem; }
+  .stat2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .stat { border:1px solid var(--sage-200); border-radius:12px; padding:8px 10px; background:var(--sage-50); }
+  .stat .l { font-size:.74rem; color:var(--moss-500); text-transform:uppercase; letter-spacing:.07em; font-weight:600; }
+  .stat .v { font-weight:700; font-size:1.02rem; }
+  .theory td, .theory th { padding:6px 8px; font-size:.86rem; background:transparent; position:static; }
+  .alert { padding:10px 12px; border-radius:12px; border:1.5px solid var(--sage-400); background:var(--sage-100); font-size:.9rem; }
+  .alert.bad { border-color:var(--berry-600); background:var(--berry-100); color:#6b2b27; }
+  .alert.good { border-color:var(--honey-500); background:var(--honey-100); color:#3f4a1b; }
+  .turn { display:flex; align-items:center; gap:10px; font-weight:700; font-size:1.05rem; }
+  .dot { width:12px; height:12px; border-radius:50%; display:inline-block; }
+  .dot.k { background:var(--berry-600); } .dot.u { background:var(--honey-500); }
+  .log { max-height:200px; overflow:auto; font-size:.84rem; padding-left:20px; margin:0; }
+  .log li { margin:2px 0; }
+  .pop { position:absolute; z-index:5; background:var(--cream-50); border:1.5px solid var(--moss-600); border-radius:14px; padding:10px; box-shadow:0 10px 30px rgba(13,24,33,.22); display:flex; flex-direction:column; gap:8px; min-width:210px; }
+  .pop .opts { display:flex; gap:8px; }
+  .pop .opt { flex:1; border:1.5px solid var(--sage-400); border-radius:10px; background:#fff; padding:6px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; font-size:.78rem; font-weight:600; }
+  .pop .opt:hover { border-color:var(--honey-500); background:var(--honey-100); }
+  .xc { cursor:pointer; }
+  .xc:hover circle.ring { stroke-width:.1; }
+  .modal { position:fixed; inset:0; background:rgba(13,24,33,.55); z-index:50; display:flex; align-items:center; justify-content:center; padding:18px; }
+  .modal .card { width:min(960px,100%); max-height:94vh; display:flex; flex-direction:column; }
+  .modal canvas { width:100%; height:min(68vh,620px); display:block; background:radial-gradient(circle at 50% 40%, #ffffff, var(--sage-50)); border-radius:12px; cursor:grab; touch-action:none; }
+  .hero { display:grid; grid-template-columns:1.4fr 1fr; gap:18px; margin-bottom:22px; }
+  @media (max-width:900px) { .hero { grid-template-columns:1fr; } }
+  .callout { background:var(--forest-800); color:var(--cream-50); border-radius:var(--radius); padding:18px 20px; }
+  .callout h3 { font-size:1.1rem; margin-bottom:6px; }
+  .callout p { margin:6px 0; color:#d8e2ee; font-size:.93rem; }
+  .bars { display:flex; flex-direction:column; gap:6px; }
+  .barrow { display:grid; grid-template-columns:130px 1fr 52px; gap:8px; align-items:center; font-size:.85rem; }
+  .bartrack { background:var(--sage-100); border-radius:6px; height:14px; overflow:hidden; }
+  .barfill { background:var(--moss-600); height:100%; border-radius:6px; }
+  .empty { text-align:center; padding:30px; color:var(--moss-500); }
+  .spinner { display:inline-block; width:14px; height:14px; border:2px solid var(--sage-200); border-top-color:var(--moss-600); border-radius:50%; animation:spin .8s linear infinite; vertical-align:-2px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .prose p, .prose li { max-width:820px; }
+  .prose h2 { margin:22px 0 8px; font-size:1.3rem; }
+  code { background:var(--sage-50); padding:1px 5px; border-radius:5px; font-size:.86em; }
+  .legend { display:flex; gap:12px; flex-wrap:wrap; font-size:.8rem; color:var(--moss-600); margin-top:8px; }
+  .legend span { display:inline-flex; align-items:center; gap:5px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 12 C78 12 92 46 70 66 C52 82 26 70 22 50 C18 28 46 16 62 34 C76 50 70 78 48 86 C28 92 10 74 18 54" fill="none" stroke="#344966" stroke-width="9" stroke-linecap="round"/></svg>
+      <div>KnotLink <small>Strategy Lab</small></div>
+    </div>
+    <nav id="nav">
+      <a href="#catalog" data-r="catalog">Knot catalog</a>
+      <a href="#play" data-r="play">Play</a>
+      <a href="#atlas" data-r="atlas">First-mover atlas</a>
+      <a href="#data" data-r="data">Experiment data</a>
+      <a href="#about" data-r="about">About</a>
+    </nav>
+  </div>
+</header>
+<main id="app"></main>
+<div id="modal-root"></div>
+
+<script type="module">
+// knotEngine.js — KnotLink game engine (no dependencies, browser + Node)
+//
+// Tile convention matches knotlink/server and knot_mosaics/wild_mosaics.py:
+//   0 empty | 1 left-down | 2 right-down | 3 up-right | 4 left-up | 5 left-right | 6 up-down
+//   7 {down-left, up-right} | 8 {down-right, left-up}
+//   9 crossing, horizontal strand OVER | 10 crossing, vertical strand OVER | -1 unresolved crossing
+//   (the React UI uses 11 for unresolved; normalizeBoard maps 11 -> -1)
+//
+// What this module provides
+//   * diagram tracing of a mosaic (components, crossings, orientation, writhe)
+//   * Kauffman bracket / Jones polynomial and an exact unknot test.  Jones = 1 <=> unknot is a
+//     theorem for diagrams with < 25 crossings (Tuzun–Sikora 2021), which covers every board here.
+//   * a perfect-play solver of the knotting–unknotting game for both choices of first mover
+//   * an AI move policy (wins when it can; sets traps when it is theoretically lost)
+//   * knot-shadow generators: twist, (2,q)/(3,q) torus, 2-bridge (Conway notation), pretzel,
+//     "deceptive" unknot shadows and dense random mosaics.
+
+const DIRS = ['up', 'right', 'down', 'left'];
+const DR = [-1, 0, 1, 0];
+const DC = [0, 1, 0, -1];
+const OPP = [2, 3, 0, 1];
+// y-up unit vectors for travel directions (used for crossing signs)
+const VX = [0, 1, 0, -1];
+const VY = [1, 0, -1, 0];
+const PAIRS = {
+  0: [], 1: [[3, 2]], 2: [[1, 2]], 3: [[0, 1]], 4: [[3, 0]], 5: [[3, 1]], 6: [[0, 2]],
+  7: [[2, 3], [0, 1]], 8: [[2, 1], [3, 0]],
+};
+const MAX_SOLVE = 12;      // playable crossings the solver will handle (small boards)
+const MAX_SOLVE_LARGE = 8; // playable crossings the solver will handle on boards > 14 crossings
+const STATE_SUM_MAX = 14;  // above this many crossings use the row-sweep algorithm
+const MAX_CLASSIFY = 400;  // crossings the classifier will attempt (row sweep)
+const JONES_VERIFIED_BELOW = 25; // Jones = 1 => unknot is proven for < 25 crossings
+
+const isCrossingTile = (t) => t === -1 || t === 9 || t === 10;
+function goes(t, d) {
+  if (isCrossingTile(t)) return true;
+  const p = PAIRS[t];
+  return !!p && p.some((q) => q[0] === d || q[1] === d);
+}
+function exitDir(t, d) {
+  if (isCrossingTile(t)) return OPP[d];
+  for (const [a, b] of PAIRS[t]) { if (a === d) return b; if (b === d) return a; }
+  return -1;
+}
+function strandIndex(t, d) {
+  const p = PAIRS[t];
+  for (let k = 0; k < p.length; k++) if (p[k][0] === d || p[k][1] === d) return k;
+  return -1;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Boards
+
+function normalizeBoard(input) {
+  let b = input;
+  if (typeof b === 'string') b = JSON.parse(b);
+  return b.map((row) => row.map((v) => { const t = Number(v); return t === 11 ? -1 : t; }));
+}
+
+function validateBoard(board) {
+  const errors = [];
+  if (!Array.isArray(board) || board.length === 0) return ['Board must be a non-empty 2D array'];
+  const cols = board[0].length;
+  if (!board.every((r) => Array.isArray(r) && r.length === cols)) return ['All rows must have the same length'];
+  const R = board.length;
+  for (let r = 0; r < R; r++) for (let c = 0; c < cols; c++) {
+    const t = board[r][c];
+    if (!Number.isInteger(t) || t < -1 || t > 10) { errors.push(`Bad tile ${t} at (${r},${c})`); continue; }
+    for (let d = 0; d < 4; d++) {
+      if (!goes(t, d)) continue;
+      const rr = r + DR[d], cc = c + DC[d];
+      if (rr < 0 || rr >= R || cc < 0 || cc >= cols || !goes(board[rr][cc], OPP[d])) {
+        errors.push(`Tile at (${r},${c}) has a loose end going ${DIRS[d]}`);
+      }
+    }
+  }
+  return errors;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Diagram: crossings, arcs between crossing ports, components, orientation
+
+function buildDiagram(board) {
+  const R = board.length, C = board[0].length;
+  const crossings = [];
+  const xIndex = new Map();
+  for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+    if (isCrossingTile(board[r][c])) { xIndex.set(r * C + c, crossings.length); crossings.push({ r, c, tile: board[r][c] }); }
+  }
+  const N = crossings.length;
+  const visitedSeg = new Set(); // `${r},${c},${strand}`
+  const partner = new Int32Array(4 * N).fill(-1);
+  const arcCells = new Array(4 * N); // cells walked from port p to its partner (exclusive)
+
+  for (let i = 0; i < N; i++) for (let d = 0; d < 4; d++) {
+    const p = 4 * i + d;
+    if (partner[p] !== -1) continue;
+    let r = crossings[i].r + DR[d], c = crossings[i].c + DC[d], entry = OPP[d];
+    const cells = [];
+    for (let guard = 0; guard < R * C * 2 + 4; guard++) {
+      const t = board[r][c];
+      if (isCrossingTile(t)) {
+        const q = 4 * xIndex.get(r * C + c) + entry;
+        partner[p] = q; partner[q] = p;
+        arcCells[p] = cells;
+        arcCells[q] = cells.slice().reverse().map((s) => ({ r: s.r, c: s.c, entry: s.exit, exit: s.entry }));
+        break;
+      }
+      const ex = exitDir(t, entry);
+      visitedSeg.add(`${r},${c},${strandIndex(t, entry)}`);
+      cells.push({ r, c, entry, exit: ex });
+      r += DR[ex]; c += DC[ex]; entry = OPP[ex];
+    }
+  }
+
+  // closed loops with no crossings
+  const freeLoops = [];
+  for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+    const t = board[r][c];
+    if (isCrossingTile(t) || !PAIRS[t]) continue;
+    PAIRS[t].forEach((pair, k) => {
+      if (visitedSeg.has(`${r},${c},${k}`)) return;
+      const loop = [];
+      let rr = r, cc = c, entry = pair[0];
+      for (let guard = 0; guard < R * C * 2 + 4; guard++) {
+        const tt = board[rr][cc];
+        const key = `${rr},${cc},${strandIndex(tt, entry)}`;
+        if (visitedSeg.has(key)) break;
+        visitedSeg.add(key);
+        const ex = exitDir(tt, entry);
+        loop.push({ r: rr, c: cc, entry, exit: ex });
+        rr += DR[ex]; cc += DC[ex]; entry = OPP[ex];
+      }
+      freeLoops.push(loop);
+    });
+  }
+
+  // components: arcs + straight-through crossings
+  const uf = new UF(4 * N);
+  for (let p = 0; p < 4 * N; p++) uf.union(p, partner[p]);
+  for (let i = 0; i < N; i++) { uf.union(4 * i, 4 * i + 2); uf.union(4 * i + 1, 4 * i + 3); }
+  const roots = new Set();
+  for (let p = 0; p < 4 * N; p++) roots.add(uf.find(p));
+  const components = roots.size + freeLoops.length;
+
+  const diag = { R, C, board, crossings, N, partner, arcCells, freeLoops, components, isKnotShadow: components === 1 };
+  if (components === 1 && N > 0) orient(diag);
+  return diag;
+}
+
+function orient(diag) {
+  // walk the single component starting at crossing 0 moving right
+  const { N, partner, arcCells, crossings } = diag;
+  const passages = []; // {i, dir}
+  const path = [];     // cells in travel order incl. crossings: {r,c,entry,exit,crossing}
+  let i = 0, dir = 1;
+  for (let guard = 0; guard < 2 * N + 2; guard++) {
+    passages.push({ i, dir });
+    path.push({ r: crossings[i].r, c: crossings[i].c, entry: OPP[dir], exit: dir, crossing: i });
+    const p = 4 * i + dir;
+    for (const s of arcCells[p]) path.push(s);
+    const q = partner[p];
+    i = q >> 2; dir = OPP[q & 3];
+    if (i === 0 && dir === 1) break;
+  }
+  const hPass = new Int32Array(N).fill(-1), vPass = new Int32Array(N).fill(-1);
+  const hDir = new Int32Array(N), vDir = new Int32Array(N);
+  passages.forEach((ps, k) => {
+    if (ps.dir === 1 || ps.dir === 3) { hPass[ps.i] = k; hDir[ps.i] = ps.dir; }
+    else { vPass[ps.i] = k; vDir[ps.i] = ps.dir; }
+  });
+  // sign of crossing i if resolved as tile 9 (horizontal over); tile 10 is the negative
+  const sign9 = new Int8Array(N);
+  const altTile = new Int8Array(N);
+  for (let j = 0; j < N; j++) {
+    const o = hDir[j], u = vDir[j];
+    sign9[j] = VX[o] * VY[u] - VY[o] * VX[u] > 0 ? 1 : -1;
+    altTile[j] = hPass[j] % 2 === 0 ? 9 : 10;
+  }
+  Object.assign(diag, { passages, path, sign9, altTile, hPass, vPass });
+}
+
+class UF {
+  constructor(n) { this.p = new Int32Array(n); for (let i = 0; i < n; i++) this.p[i] = i; }
+  find(x) { const p = this.p; while (p[x] !== x) { p[x] = p[p[x]]; x = p[x]; } return x; }
+  union(a, b) { a = this.find(a); b = this.find(b); if (a !== b) this.p[a] = b; }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Kauffman bracket via state sums.
+// Geometric smoothing at crossing i: bit 1 = "type 7" pairing {down-left, up-right},
+// bit 0 = "type 8" pairing {down-right, up-left}.  The A-smoothing of tile 9 is type 8 and of
+// tile 10 is type 7, so with resolution bit r_i = 1 for tile 10, crossing i is A-smoothed in
+// state g exactly when g_i == r_i.
+
+function loopTable(diag) {
+  if (diag._loops) return diag._loops;
+  const { N, partner } = diag;
+  const M = 4 * N;
+  const parent = new Int32Array(M);
+  const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+  const arcs = [];
+  for (let p = 0; p < M; p++) if (partner[p] > p) arcs.push(p, partner[p]);
+  const total = 1 << N;
+  const L = new Uint8Array(total);
+  for (let g = 0; g < total; g++) {
+    for (let x = 0; x < M; x++) parent[x] = x;
+    let comps = M;
+    const un = (a, b) => { a = find(a); b = find(b); if (a !== b) { parent[a] = b; comps--; } };
+    for (let k = 0; k < arcs.length; k += 2) un(arcs[k], arcs[k + 1]);
+    for (let i = 0; i < N; i++) {
+      const b = 4 * i;
+      if ((g >> i) & 1) { un(b + 2, b + 3); un(b, b + 1); } else { un(b + 2, b + 1); un(b + 3, b); }
+    }
+    L[g] = comps + diag.freeLoops.length;
+  }
+  diag._loops = L;
+  return L;
+}
+
+const POP = new Uint8Array(1 << 16);
+for (let i = 1; i < POP.length; i++) POP[i] = POP[i >> 1] + (i & 1);
+const popcount = (x) => POP[x & 0xffff] + POP[x >>> 16];
+
+// Laurent polynomials in A, stored dense with an offset
+function polyNew(off) { return { off, c: new Float64Array(2 * off + 1) }; }
+
+function dPowers(maxK, off) {
+  // d = -A^2 - A^-2 ; returns array of polys d^k for k = 0..maxK
+  const out = [];
+  let cur = polyNew(off); cur.c[off] = 1; out.push(cur);
+  for (let k = 1; k <= maxK; k++) {
+    const nx = polyNew(off);
+    for (let e = -off; e <= off; e++) {
+      const v = cur.c[e + off]; if (!v) continue;
+      if (e + 2 <= off) nx.c[e + 2 + off] -= v;
+      if (e - 2 >= -off) nx.c[e - 2 + off] -= v;
+    }
+    out.push(nx); cur = nx;
+  }
+  return out;
+}
+
+function bracketContext(diag) {
+  if (diag._bctx) return diag._bctx;
+  const N = diag.N;
+  const off = 8 * N + 8;
+  diag._bctx = { off, dp: dPowers(N + diag.freeLoops.length + 1, off), L: loopTable(diag) };
+  return diag._bctx;
+}
+
+// r: bitmask over all N crossings, bit 1 = tile 10.  Returns normalized f(A) = (-A^3)^-w <D>.
+function normalizedBracket(diag, r) {
+  const { N } = diag;
+  const { off, dp, L } = bracketContext(diag);
+  const W = N + diag.freeLoops.length + 2;
+  const counts = new Float64Array((N + 1) * W);
+  const total = 1 << N;
+  for (let g = 0; g < total; g++) counts[popcount(g ^ r) * W + L[g]]++;
+  const f = polyNew(off);
+  let w = 0;
+  for (let i = 0; i < N; i++) w += ((r >> i) & 1) ? -diag.sign9[i] : diag.sign9[i];
+  const shiftBase = -3 * w;
+  const sgn = (w & 1) ? -1 : 1;
+  for (let h = 0; h <= N; h++) {
+    const aexp = N - 2 * h + shiftBase;
+    for (let l = 1; l < W; l++) {
+      const cnt = counts[h * W + l]; if (!cnt) continue;
+      const d = dp[l - 1].c;
+      for (let e = 0; e < d.length; e++) {
+        const v = d[e]; if (!v) continue;
+        const idx = e + aexp;
+        if (idx >= 0 && idx < f.c.length) f.c[idx] += sgn * cnt * v;
+      }
+    }
+  }
+  return f;
+}
+
+function isOne(f) {
+  for (let i = 0; i < f.c.length; i++) if (f.c[i] !== (i === f.off ? 1 : 0)) return false;
+  return true;
+}
+
+// Jones polynomial in t from f(A): A^e -> t^(-e/4). Returns [[exponent, coeff], ...] ascending.
+function jonesTerms(f) {
+  const terms = [];
+  for (let i = f.c.length - 1; i >= 0; i--) {
+    const v = f.c[i]; if (!v) continue;
+    terms.push([-(i - f.off) / 4, v]);
+  }
+  return terms;
+}
+
+function formatJones(terms) {
+  if (!terms.length) return '0';
+  const sup = (e) => (e === 1 ? '' : `^${Number.isInteger(e) ? e : e.toFixed(2)}`);
+  let s = '';
+  [...terms].sort((a, b) => b[0] - a[0]).forEach(([e, c], k) => {
+    const neg = c < 0, a = Math.abs(c);
+    const coef = e === 0 ? `${a}` : a === 1 ? '' : `${a}`;
+    const mono = e === 0 ? '' : `t${sup(e)}`;
+    s += (k === 0 ? (neg ? '-' : '') : neg ? ' - ' : ' + ') + coef + mono;
+  });
+  return s;
+}
+
+function determinant(terms) {
+  // |V(-1)| for knots (integer exponents)
+  let s = 0;
+  for (const [e, c] of terms) s += c * (Math.round(e) % 2 === 0 ? 1 : -1);
+  return Math.abs(s);
+}
+
+function resolutionMask(diag, tiles /* array length N of 9/10 */) {
+  let r = 0;
+  for (let i = 0; i < diag.N; i++) if (tiles[i] === 10) r |= 1 << i;
+  return r;
+}
+
+// Classify a fully resolved board.  Output mirrors the Sage classifier's JSON fields.
+function classifyBoard(board) {
+  const b = normalizeBoard(board);
+  const errs = validateBoard(b);
+  if (errs.length) return { is_unknot: null, reason: 'invalid_board', errors: errs };
+  const diag = buildDiagram(b);
+  if (diag.crossings.some((x) => x.tile === -1)) return { is_unknot: null, reason: 'unresolved_crossings', num_crossings: diag.N };
+  if (diag.components !== 1) return { is_unknot: null, reason: 'link_not_supported', components: diag.components, num_crossings: diag.N };
+  if (diag.N === 0) return { is_unknot: true, reason: 'no_crossings', num_crossings: 0, jones_polynomial: '1' };
+  if (diag.N > MAX_CLASSIFY) return { is_unknot: null, reason: 'too_many_crossings', num_crossings: diag.N };
+  let f, method;
+  try {
+    if (diag.N <= STATE_SUM_MAX) { f = normalizedBracket(diag, resolutionMask(diag, diag.crossings.map((x) => x.tile))); method = 'state_sum'; }
+    else { f = sweepNormalizedBracket(b, diag); method = 'row_sweep'; if (!f.exact) return { is_unknot: null, reason: 'precision_limit', num_crossings: diag.N }; }
+  } catch (err) { return { is_unknot: null, reason: 'too_complex', error: String(err.message || err), num_crossings: diag.N }; }
+  const terms = jonesTerms(f);
+  const one = isOne(f);
+  const reduced = reducedCrossingCount(diag, (i) => diag.crossings[i].tile);
+  const base = { num_crossings: diag.N, reduced_crossings: reduced, method, jones_polynomial: formatJones(terms), jones_terms: terms, determinant: determinant(terms) };
+  if (!one) return { ...base, is_unknot: false, reason: 'jones_polynomial', certified: true, certified_by: 'jones_not_one' };
+  if (reduced < JONES_VERIFIED_BELOW || diag.N < JONES_VERIFIED_BELOW) return { ...base, is_unknot: true, reason: 'jones_polynomial', certified: true, certified_by: reduced === 0 ? 'reidemeister' : 'jones_below_25' };
+  // Jones = 1 but the diagram is still >= 25 crossings after simplification: unknot unless this
+  // is a counterexample to the Jones unknot conjecture.
+  return { ...base, is_unknot: null, reason: 'jones_trivial_unverified', certified: false, research_candidate: true };
+}
+
+// Knot data for the alternating resolution of a shadow (used to label catalog entries)
+function alternatingInvariants(diag) {
+  if (!diag.isKnotShadow || diag.N === 0 || diag.N > MAX_CLASSIFY) return null;
+  let f;
+  if (diag.N <= STATE_SUM_MAX) f = normalizedBracket(diag, resolutionMask(diag, Array.from(diag.altTile)));
+  else {
+    const b = diag.board.map((r) => r.slice());
+    diag.crossings.forEach((x, i) => { b[x.r][x.c] = diag.altTile[i]; });
+    try { f = sweepNormalizedBracket(b, diag); } catch { return null; }
+  }
+  const terms = jonesTerms(f);
+  const exps = terms.map((t) => t[0]);
+  return {
+    jones: formatJones(terms), terms, determinant: determinant(terms),
+    span: terms.length ? Math.max(...exps) - Math.min(...exps) : 0, unknot: isOne(f),
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Scalable Kauffman bracket: sweep the mosaic cell by cell (a Temperley–Lieb transfer matrix).
+// The state is the planar pairing of strand ends on the frontier between processed and
+// unprocessed cells, so the cost grows with the number of strands crossing the frontier, not
+// with the number of crossings. This is what lets 25×25 boards with dozens of crossings work.
+
+const TRANSPOSE_TILE = { 0: 0, 1: 3, 2: 2, 3: 1, 4: 4, 5: 6, 6: 5, 7: 7, 8: 8, 9: 10, 10: 9, [-1]: -1 };
+function transposeBoard(b) {
+  const R = b.length, C = b[0].length;
+  return Array.from({ length: C }, (_, c) => Array.from({ length: R }, (_, r) => TRANSPOSE_TILE[b[r][c]]));
+}
+function sweepWidth(b) {
+  // largest number of strands crossing a horizontal cut (row-major frontier size)
+  let w = 0;
+  for (let r = 0; r < b.length; r++) { let k = 0; for (const t of b[r]) if (goes(t, 2)) k++; w = Math.max(w, k); }
+  return w;
+}
+const SMOOTH7 = [[2, 3], [0, 1]], SMOOTH8 = [[2, 1], [3, 0]];
+
+function sweepBracketRaw(board) {
+  // returns {lo, c} for <D> (normalized so that a single loop is 1) and the peak state count
+  const R = board.length, C = board[0].length;
+  let states = new Map();
+  const init = new Int16Array(C + 1).fill(-1);
+  states.set(init.join(','), { p: init, poly: { lo: 0, c: [1] } });
+  let peak = 1, maxAbs = 1;
+  const uf = new Int32Array(C + 3);
+  const find = (x) => { while (uf[x] !== x) { uf[x] = uf[uf[x]]; x = uf[x]; } return x; };
+  for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+    const t = board[r][c];
+    if (t === 0 || t === 5 || t === 6) continue; // these never change the frontier
+    const options = t === 9 ? [[SMOOTH8, 1], [SMOOTH7, -1]] : t === 10 ? [[SMOOTH7, 1], [SMOOTH8, -1]] : [[PAIRS[t], 0]];
+    const next = new Map();
+    const ext = (side) => (side === 0 ? c : side === 3 ? C : side === 2 ? C + 1 : C + 2);
+    for (const { p, poly } of states.values()) {
+      for (const [pairs, w] of options) {
+        for (let i = 0; i < C + 3; i++) uf[i] = i;
+        for (let i = 0; i <= C; i++) if (p[i] > i) uf[find(i)] = find(p[i]);
+        let usesD = false, usesR = false;
+        for (const [a, b] of pairs) {
+          if (a === 2 || b === 2) usesD = true;
+          if (a === 1 || b === 1) usesR = true;
+          const x = find(ext(a)), y = find(ext(b)); if (x !== y) uf[x] = y;
+        }
+        const np = new Int16Array(C + 1).fill(-1);
+        const firstEnd = new Map();
+        const slotOf = (n) => (n === C + 1 ? c : n === C + 2 ? C : n);
+        const ends = [];
+        for (let i = 0; i <= C; i++) if (i !== c && i !== C && p[i] >= 0) ends.push(i);
+        if (usesD) ends.push(C + 1);
+        if (usesR) ends.push(C + 2);
+        const hasEnd = new Set();
+        for (const e of ends) {
+          const root = find(e); hasEnd.add(root);
+          if (firstEnd.has(root)) { const o = firstEnd.get(root); np[slotOf(o)] = slotOf(e); np[slotOf(e)] = slotOf(o); }
+          else firstEnd.set(root, e);
+        }
+        let loops = 0;
+        const seen = new Set();
+        for (const x of [c, C]) {
+          if (p[x] < 0) continue;
+          const root = find(x);
+          if (!hasEnd.has(root) && !seen.has(root)) { seen.add(root); loops++; }
+        }
+        let q = { lo: poly.lo + w, c: poly.c };
+        for (let k = 0; k < loops; k++) q = polyMulD(q);
+        const key = np.join(',');
+        const cur = next.get(key);
+        if (!cur) next.set(key, { p: np, poly: { lo: q.lo, c: q.c.slice() } });
+        else maxAbs = Math.max(maxAbs, polyAddInto(cur, q));
+      }
+    }
+    states = next;
+    if (states.size > peak) peak = states.size;
+    if (peak > 400000) throw new Error('Diagram too wide for the row sweep');
+  }
+  const fin = [...states.values()];
+  if (fin.length !== 1 || fin[0].p.some((x) => x !== -1)) throw new Error('Sweep did not close up (invalid board?)');
+  return { poly: polyDivD(fin[0].poly), peak, exact: maxAbs < 2 ** 52 };
+}
+function polyMulD(p) {
+  const n = p.c.length, c = new Array(n + 4).fill(0);
+  for (let i = 0; i < n; i++) { const v = p.c[i]; if (v) { c[i] -= v; c[i + 4] -= v; } }
+  return { lo: p.lo - 2, c };
+}
+function polyAddInto(entry, q) {
+  const p = entry.poly;
+  const lo = Math.min(p.lo, q.lo), hi = Math.max(p.lo + p.c.length, q.lo + q.c.length);
+  if (lo !== p.lo || hi !== p.lo + p.c.length) {
+    const c = new Array(hi - lo).fill(0);
+    for (let i = 0; i < p.c.length; i++) c[i + p.lo - lo] = p.c[i];
+    entry.poly = { lo, c };
+  }
+  const t = entry.poly; let m = 0;
+  for (let i = 0; i < q.c.length; i++) { const k = i + q.lo - t.lo; t.c[k] += q.c[i]; const a = Math.abs(t.c[k]); if (a > m) m = a; }
+  return m;
+}
+function polyDivD(P) {
+  // P = d * Q with d = -A^2 - A^-2 = -A^-2 (A^4 + 1)  =>  Q = -A^2 P / (A^4 + 1)
+  const r = P.c.map((x) => -x), lo = P.lo + 2, n = r.length;
+  if (n < 5) throw new Error('bracket not divisible by d');
+  const q = new Array(n - 4).fill(0);
+  for (let i = n - 1; i >= 4; i--) { const v = r[i]; if (v) { q[i - 4] = v; r[i] -= v; r[i - 4] -= v; } }
+  if (r.some((x) => Math.abs(x) > 1e-9)) throw new Error('bracket not divisible by d');
+  return { lo, c: q };
+}
+function toDense({ lo, c }) {
+  const off = Math.max(Math.abs(lo), Math.abs(lo + c.length)) + 2;
+  const f = polyNew(off);
+  c.forEach((v, i) => { if (v) f.c[lo + i + off] = v; });
+  return f;
+}
+
+// Normalized bracket f(A) for any resolved board, choosing the cheaper sweep direction.
+function sweepNormalizedBracket(board, diag) {
+  const T = transposeBoard(board);
+  const useT = sweepWidth(T) < sweepWidth(board);
+  const res = sweepBracketRaw(useT ? T : board);
+  let { lo, c } = res.poly;
+  if (useT) { c = c.slice().reverse(); lo = -(lo + c.length - 1); } // transpose = mirror image: A -> 1/A
+  let w = 0;
+  diag.crossings.forEach((x, i) => { w += board[x.r][x.c] === 10 ? -diag.sign9[i] : diag.sign9[i]; });
+  const sgn = (w & 1) ? -1 : 1;
+  const f = toDense({ lo: lo - 3 * w, c: c.map((v) => v * sgn) });
+  f.exact = res.exact; f.peak = res.peak;
+  return f;
+}
+
+// Reidemeister I / II simplification on the Gauss code of a resolved knot diagram.
+// Returns the crossing count after removing kinks (RI) and removable bigons (RII): if that is
+// < 25, a Jones polynomial of 1 certifies the unknot (Tuzun–Sikora verification).
+function reducedCrossingCount(diag, tileOf /* (crossingIndex) => 9 | 10 */) {
+  let seq = diag.passages.map((ps) => ({ i: ps.i, o: (ps.dir === 1 || ps.dir === 3) ? tileOf(ps.i) === 9 : tileOf(ps.i) === 10 }));
+  let changed = true;
+  while (changed && seq.length) {
+    changed = false;
+    const n = seq.length;
+    for (let k = 0; k < n && !changed; k++) {
+      const a = seq[k], b = seq[(k + 1) % n];
+      if (a.i === b.i) { seq = seq.filter((x) => x.i !== a.i); changed = true; }
+    }
+    if (changed) continue;
+    for (let k = 0; k < n && !changed; k++) {
+      const a = seq[k], b = seq[(k + 1) % n];
+      if (a.i === b.i || a.o !== b.o) continue;
+      let ka = -1, kb = -1;
+      seq.forEach((x, idx) => { if (x.i === a.i && idx !== k) ka = idx; if (x.i === b.i && idx !== (k + 1) % n) kb = idx; });
+      const d = Math.abs(ka - kb);
+      if (d === 1 || d === n - 1) { seq = seq.filter((x) => x.i !== a.i && x.i !== b.i); changed = true; }
+    }
+  }
+  return seq.length / 2;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The game
+
+function createGame(board) {
+  const b = normalizeBoard(board);
+  const errors = validateBoard(b);
+  if (errors.length) return { ok: false, errors };
+  const diag = buildDiagram(b);
+  if (!diag.isKnotShadow) return { ok: false, errors: [`The shadow has ${diag.components} components; only knot shadows (1 component) are supported.`], diag };
+  const playable = [];
+  let fixedMask = 0;
+  diag.crossings.forEach((x, i) => { if (x.tile === -1) playable.push(i); else if (x.tile === 10) fixedMask |= 1 << i; });
+  // exact solving: up to 12 open crossings on small boards (state sum), up to 8 on large ones (row sweep)
+  const solvable = diag.N <= STATE_SUM_MAX ? playable.length <= MAX_SOLVE : playable.length <= MAX_SOLVE_LARGE;
+  const why = solvable ? '' : `${playable.length} open crossings on a ${diag.N}-crossing board: too many to solve exactly (limit ${diag.N <= STATE_SUM_MAX ? MAX_SOLVE : MAX_SOLVE_LARGE}).`;
+  return { ok: true, solvable, why, board: b, diag, playable, n: playable.length, fixedMask, _memo: {} };
+}
+
+function leafTable(game) {
+  if (game._leaves) return game._leaves;
+  const { n, playable, fixedMask, diag } = game;
+  const total = 1 << n;
+  const leaves = new Uint8Array(total); // 1 = knotted (Knotter wins)
+  if (diag.N <= STATE_SUM_MAX) {
+    for (let m = 0; m < total; m++) {
+      let r = fixedMask;
+      for (let j = 0; j < n; j++) if ((m >> j) & 1) r |= 1 << playable[j];
+      leaves[m] = isOne(normalizedBracket(diag, r)) ? 0 : 1;
+    }
+  } else {
+    const b = game.board.map((row) => row.slice());
+    for (let m = 0; m < total; m++) {
+      playable.forEach((i, j) => { const x = diag.crossings[i]; b[x.r][x.c] = (m >> j) & 1 ? 10 : 9; });
+      leaves[m] = isOne(sweepNormalizedBracket(b, diag)) ? 0 : 1;
+    }
+  }
+  game._leaves = leaves;
+  return leaves;
+}
+
+const POW3 = [1]; for (let i = 1; i <= 16; i++) POW3.push(POW3[i - 1] * 3);
+
+function solver(game, first /* 'knotter' | 'unknotter' */) {
+  if (game._memo[first]) return game._memo[first];
+  const { n } = game;
+  const leaves = leafTable(game);
+  const memo = new Int8Array(POW3[n]).fill(-1);
+  const trit = new Uint8Array(n);
+  const kFirst = first === 'knotter';
+  // returns 1 if Knotter wins with perfect play from this state
+  function val(state, mask, depth) {
+    if (depth === n) return leaves[mask];
+    const m = memo[state];
+    if (m >= 0) return m;
+    const moverK = (depth % 2 === 0) === kFirst;
+    let res = moverK ? 0 : 1;
+    outer: for (let j = 0; j < n; j++) {
+      if (trit[j]) continue;
+      for (let v = 1; v <= 2; v++) {
+        trit[j] = v;
+        const r = val(state + v * POW3[j], v === 2 ? mask | (1 << j) : mask, depth + 1);
+        trit[j] = 0;
+        if (moverK && r === 1) { res = 1; break outer; }
+        if (!moverK && r === 0) { res = 0; break outer; }
+      }
+    }
+    memo[state] = res;
+    return res;
+  }
+  const api = {
+    // assignment: array length n with 0 (open), 9 or 10
+    value(assign) {
+      let state = 0, mask = 0, depth = 0;
+      for (let j = 0; j < n; j++) {
+        trit[j] = 0;
+        if (assign[j] === 9) { state += POW3[j]; depth++; }
+        else if (assign[j] === 10) { state += 2 * POW3[j]; mask |= 1 << j; depth++; }
+      }
+      for (let j = 0; j < n; j++) trit[j] = assign[j] === 9 ? 1 : assign[j] === 10 ? 2 : 0;
+      const v = val(state, mask, depth);
+      trit.fill(0);
+      return v;
+    },
+  };
+  game._memo[first] = api;
+  return api;
+}
+
+const other = (p) => (p === 'knotter' ? 'unknotter' : 'knotter');
+
+function moverOf(assign, first) {
+  const made = assign.filter((x) => x).length;
+  return made % 2 === 0 ? first : other(first);
+}
+
+// Winner with perfect play from the empty shadow
+function theoreticalWinner(game, first) {
+  return solver(game, first).value(new Array(game.n).fill(0)) ? 'knotter' : 'unknotter';
+}
+
+// Every legal move from `assign`, labelled with the perfect-play winner after it is made.
+function evaluateMoves(game, assign, first) {
+  const S = solver(game, first);
+  const mover = moverOf(assign, first);
+  const out = [];
+  for (let j = 0; j < game.n; j++) {
+    if (assign[j]) continue;
+    for (const tile of [9, 10]) {
+      const a = assign.slice(); a[j] = tile;
+      const done = a.every((x) => x);
+      const winner = done ? (leafTable(game)[maskOf(a)] ? 'knotter' : 'unknotter') : (S.value(a) ? 'knotter' : 'unknotter');
+      out.push({ j, crossing: game.playable[j], tile, winner, winning: winner === mover });
+    }
+  }
+  return { mover, moves: out, winnerNow: S.value(assign) ? 'knotter' : 'unknotter' };
+}
+
+// Final classification of an assignment (works for any board size)
+function classifyAssignment(game, assign) {
+  const b = game.board.map((row) => row.slice());
+  assign.forEach((t, j) => { if (t) { const x = game.diag.crossings[game.playable[j]]; b[x.r][x.c] = t; } });
+  return classifyBoard(b);
+}
+
+// Heuristic AI for boards too large to solve: exact search once few crossings remain, otherwise
+// play for alternation (Knotter) or against it (Unknotter). Reduced alternating diagrams are
+// always knotted, while non-alternating stretches create Reidemeister-removable crossings.
+function heuristicMove(game, assign, first, rng = Math.random, exactBelow = 3) {
+  const mover = moverOf(assign, first);
+  const open = []; assign.forEach((t, j) => { if (!t) open.push(j); });
+  if (open.length <= exactBelow) {
+    const memo = new Map();
+    const winnerOf = (a) => {
+      const k = a.join(',');
+      if (memo.has(k)) return memo.get(k);
+      let w;
+      if (a.every((x) => x)) { const r = classifyAssignment(game, a); w = r.is_unknot === false ? 'knotter' : 'unknotter'; }
+      else {
+        const m = moverOf(a, first); w = other(m);
+        outer: for (let j = 0; j < a.length; j++) { if (a[j]) continue; for (const t of [9, 10]) { const b = a.slice(); b[j] = t; if (winnerOf(b) === m) { w = m; break outer; } } }
+      }
+      memo.set(k, w); return w;
+    };
+    const wins = [];
+    for (const j of open) for (const tile of [9, 10]) { const b = assign.slice(); b[j] = tile; if (winnerOf(b) === mover) wins.push({ j, tile }); }
+    if (wins.length) { const m = wins[Math.floor(rng() * wins.length)]; return { ...m, crossing: game.playable[m.j], why: 'exact' }; }
+  }
+  const { diag } = game;
+  const tileAt = new Map();
+  diag.crossings.forEach((x, i) => { if (x.tile !== -1) tileAt.set(i, x.tile); });
+  assign.forEach((t, j) => { if (t) tileAt.set(game.playable[j], t); });
+  const P = diag.passages, n2 = P.length;
+  const overAt = (k, tiles) => { const i = P[k].i, t = tiles.get(i); if (t === undefined) return null; return (P[k].dir === 1 || P[k].dir === 3) ? t === 9 : t === 10; };
+  let best = [], bestScore = -Infinity;
+  for (const j of open) for (const tile of [9, 10]) {
+    const i = game.playable[j];
+    const tiles = new Map(tileAt); tiles.set(i, tile);
+    let score = 0;
+    for (const k of [diag.hPass[i], diag.vPass[i]]) for (const nb of [(k + n2 - 1) % n2, (k + 1) % n2]) {
+      const a = overAt(k, tiles), b = overAt(nb, tiles);
+      if (a === null || b === null || P[nb].i === i) continue;
+      score += a !== b ? 1 : -1;
+    }
+    if (mover === 'unknotter') score = -score;
+    score += rng() * 0.01;
+    if (score > bestScore + 1e-9) { bestScore = score; best = [{ j, tile }]; }
+  }
+  const m = best[0];
+  return { ...m, crossing: game.playable[m.j], why: 'heuristic' };
+}
+
+function maskOf(a) { let m = 0; a.forEach((x, j) => { if (x === 10) m |= 1 << j; }); return m; }
+
+function finalOutcome(game, assign) {
+  return leafTable(game)[maskOf(assign)] ? 'knotter' : 'unknotter';
+}
+
+// AI policy: play a winning move if one exists; otherwise choose the move that leaves the
+// opponent the largest fraction of losing replies (a "trap").  rng: () => [0,1)
+function aiMove(game, assign, first, rng = Math.random) {
+  const { mover, moves } = evaluateMoves(game, assign, first);
+  const winning = moves.filter((m) => m.winning);
+  if (winning.length) return { ...winning[Math.floor(rng() * winning.length)], why: 'winning' };
+  let best = [], bestScore = -1;
+  for (const m of moves) {
+    const a = assign.slice(); a[m.j] = m.tile;
+    if (a.every((x) => x)) { const sc = 0; if (sc > bestScore) { bestScore = sc; best = [m]; } else if (sc === bestScore) best.push(m); continue; }
+    const replies = evaluateMoves(game, a, first).moves;
+    const blunders = replies.filter((x) => x.winner === mover).length / replies.length;
+    if (blunders > bestScore + 1e-9) { bestScore = blunders; best = [m]; } else if (Math.abs(blunders - bestScore) < 1e-9) best.push(m);
+  }
+  return { ...best[Math.floor(rng() * best.length)], why: 'trap', trapScore: bestScore };
+}
+
+// Full first-mover analysis of a shadow
+function analyzeShadow(board) {
+  const g = createGame(board);
+  if (!g.ok) return { ok: false, errors: g.errors };
+  if (!g.solvable) return { ok: false, unsolvable: true, crossings: g.diag.N, playable: g.n, errors: [g.why] };
+  const wK = theoreticalWinner(g, 'knotter');
+  const wU = theoreticalWinner(g, 'unknotter');
+  const leaves = leafTable(g);
+  let knotted = 0; for (const v of leaves) knotted += v;
+  return {
+    ok: true, crossings: g.diag.N, playable: g.n,
+    winnerIfKnotterFirst: wK, winnerIfUnknotterFirst: wU,
+    firstMoverMatters: wK !== wU,
+    knottedFraction: leaves.length ? knotted / leaves.length : 0,
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Shadow generators
+
+function emptyGrid(R, C) { return Array.from({ length: R }, () => new Array(C).fill(0)); }
+
+// Twist region between strand rows y and y+2 with k crossings: columns L M (Q M)^(k-1) R
+function twistColumns(k) {
+  const L = [5, 2, 4], M = [1, -1, 3], Q = [2, 8, 4], Rr = [2, 4, 5];
+  const cols = [L, M];
+  for (let i = 1; i < k; i++) cols.push(Q, M);
+  cols.push(Rr);
+  return cols;
+}
+
+function capColumns(pairs, strands, side) {
+  // nested caps; returns array of columns (each column array over rows)
+  const H = 2 * (strands - 1) + 1;
+  const depth = pairs.map(([a, b]) => pairs.filter(([c, d]) => c < a && d > b).length);
+  const W = pairs.length ? Math.max(...depth) + 1 : 0;
+  const cols = Array.from({ length: W }, () => new Array(H).fill(0));
+  pairs.forEach(([a, b], k) => {
+    const x = side === 'left' ? depth[k] : W - 1 - depth[k];
+    const ya = 2 * a, yb = 2 * b;
+    cols[x][ya] = side === 'left' ? 2 : 1;
+    cols[x][yb] = side === 'left' ? 3 : 4;
+    for (let y = ya + 1; y < yb; y++) cols[x][y] = 6;
+    if (side === 'left') { for (let xx = x + 1; xx < W; xx++) { cols[xx][ya] = 5; cols[xx][yb] = 5; } }
+    else { for (let xx = 0; xx < x; xx++) { cols[xx][ya] = 5; cols[xx][yb] = 5; } }
+  });
+  return cols;
+}
+
+// segments: [[{gen, count}, ...], ...]  (gens inside one segment act on disjoint strand pairs)
+function platShadow(strands, leftCaps, segments, rightCaps = leftCaps) {
+  const H = 2 * (strands - 1) + 1;
+  const columns = [...capColumns(leftCaps, strands, 'left')];
+  for (const seg of segments) {
+    const parts = seg.map(({ gen, count }) => ({ gen, cols: twistColumns(count) }));
+    const width = Math.max(...parts.map((p) => p.cols.length));
+    for (let x = 0; x < width; x++) {
+      const col = new Array(H).fill(0);
+      for (let s = 0; s < strands; s++) col[2 * s] = 5;
+      for (const p of parts) {
+        const y = 2 * p.gen;
+        const src = p.cols[x];
+        if (src) { col[y] = src[0]; col[y + 1] = src[1]; col[y + 2] = src[2]; }
+      }
+      columns.push(col);
+    }
+  }
+  columns.push(...capColumns(rightCaps, strands, 'right'));
+  const grid = emptyGrid(H, columns.length);
+  columns.forEach((col, x) => col.forEach((t, y) => { grid[y][x] = t; }));
+  return grid;
+}
+
+// Closure of a braid word on k strands (gens are 0-based: g joins strands g, g+1)
+function braidClosureShadow(k, word) {
+  const B = k; // first strand row
+  const H = B + 2 * (k - 1) + 1;
+  const body = [];
+  for (const g of word) body.push(...twistColumns(1).map((src) => ({ g, src })));
+  const capW = k; // columns for closure on each side
+  const C = capW + body.length + capW;
+  const grid = emptyGrid(H, C);
+  for (let s = 0; s < k; s++) for (let x = capW; x < capW + body.length; x++) grid[B + 2 * s][x] = 5;
+  body.forEach(({ g, src }, k2) => {
+    const x = capW + k2, y = B + 2 * g;
+    grid[y][x] = src[0]; grid[y + 1][x] = src[1]; grid[y + 2][x] = src[2];
+  });
+  for (let s = 0; s < k; s++) {
+    const y = B + 2 * s, top = B - 1 - s, xl = capW - 1 - s, xr = capW + body.length + s;
+    for (let x = xl + 1; x < capW; x++) grid[y][x] = 5;
+    for (let x = capW + body.length; x < xr; x++) grid[y][x] = 5;
+    grid[y][xl] = 3; grid[top][xl] = 2; for (let yy = top + 1; yy < y; yy++) grid[yy][xl] = 6;
+    grid[y][xr] = 4; grid[top][xr] = 1; for (let yy = top + 1; yy < y; yy++) grid[yy][xr] = 6;
+    for (let x = xl + 1; x < xr; x++) grid[top][x] = 5;
+  }
+  return grid;
+}
+
+function twoBridgeShadow(conway) {
+  // the 4-plat needs an odd-length continued fraction: C(..., a) = C(..., a - 1, 1)
+  const cf = conway.slice();
+  if (cf.length % 2 === 0) { const a = cf.pop(); if (a > 1) cf.push(a - 1); else cf[cf.length - 1] += 1; cf.push(1); }
+  const segs = cf.map((a, k) => [{ gen: k % 2 === 0 ? 1 : 0, count: a }]);
+  return platShadow(4, [[0, 1], [2, 3]], segs);
+}
+
+function pretzelShadow(p, q, r) {
+  return platShadow(6, [[0, 5], [1, 2], [3, 4]], [[{ gen: 0, count: p }, { gen: 2, count: q }, { gen: 4, count: r }]]);
+}
+
+function toShadow(board) {
+  return board.map((row) => row.map((t) => (t === 9 || t === 10 ? -1 : t)));
+}
+
+// deterministic PRNG
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+
+// Dense random knot mosaic (every cell considered), via randomized backtracking.
+function randomDenseShadow(size, rng, { minX = 4, maxX = 9, tries = 4000 } = {}) {
+  const tiles = [0, 1, 2, 3, 4, 5, 6, 7, 8, -1];
+  const weight = { 0: 1, 1: 2, 2: 2, 3: 2, 4: 2, 5: 1.2, 6: 1.2, 7: 1, 8: 1, [-1]: 4 };
+  for (let attempt = 0; attempt < tries; attempt++) {
+    const g = emptyGrid(size, size);
+    const ok = fill(0);
+    function fill(k) {
+      if (k === size * size) return true;
+      const r = Math.floor(k / size), c = k % size;
+      const needUp = r > 0 && goes(g[r - 1][c], 2);
+      const needLeft = c > 0 && goes(g[r][c - 1], 1);
+      const cand = tiles.filter((t) => goes(t, 0) === needUp && goes(t, 3) === needLeft
+        && !(r === size - 1 && goes(t, 2)) && !(c === size - 1 && goes(t, 1)));
+      const order = cand.map((t) => ({ t, w: Math.pow(rng(), 1 / weight[t]) })).sort((a, b) => b.w - a.w);
+      for (const { t } of order) { g[r][c] = t; if (fill(k + 1)) return true; }
+      g[r][c] = 0;
+      return false;
+    }
+    if (!ok) continue;
+    const d = buildDiagram(g);
+    if (d.isKnotShadow && d.N >= minX && d.N <= maxX) return g;
+  }
+  return null;
+}
+
+// Random 12-strand plat shadow padded to size×size (default 25×25).
+function largePlatShadow(rng, { size = 25, strands = 12, prob = 0.55, minX = 20, maxX = 60, tries = 500 } = {}) {
+  const pairs = []; for (let s = 0; s < strands; s += 2) pairs.push([s, s + 1]);
+  const H = 2 * strands - 1;
+  const blocks = Math.floor((size - 2 - 2) / 3);
+  for (let t = 0; t < tries; t++) {
+    const segs = [];
+    for (let k = 0; k < blocks; k++) {
+      const seg = [];
+      for (let g = (k % 2 === 0 ? 1 : 0); g <= strands - 2; g += 2) if (rng() < prob) seg.push({ gen: g, count: 1 });
+      if (!seg.length) seg.push({ gen: 1 + 2 * Math.floor(rng() * ((strands - 2) / 2)), count: 1 });
+      segs.push(seg);
+    }
+    const core = platShadow(strands, pairs, segs);
+    const d = buildDiagram(core);
+    if (!d.isKnotShadow || d.N < minX || d.N > maxX) continue;
+    const top = Math.floor((size - H) / 2), left = Math.floor((size - core[0].length) / 2);
+    const g = emptyGrid(size, size);
+    core.forEach((row, r) => row.forEach((v, c) => { g[r + top][c + left] = v; }));
+    return g;
+  }
+  return null;
+}
+
+// Keep `open` crossings nearest the board centre unresolved; resolve the rest (seeded random).
+function openRegion(board, open, rng) {
+  const d = buildDiagram(board);
+  const cr = (board.length - 1) / 2, cc = (board[0].length - 1) / 2;
+  const order = d.crossings.map((x, i) => ({ i, dist: (x.r - cr) ** 2 + (x.c - cc) ** 2 })).sort((a, b) => a.dist - b.dist);
+  const keep = new Set(order.slice(0, open).map((o) => o.i));
+  const b = board.map((r) => r.slice());
+  d.crossings.forEach((x, i) => { b[x.r][x.c] = keep.has(i) ? -1 : (rng() < 0.5 ? 9 : 10); });
+  return b;
+}
+
+// Knot names for reduced alternating diagrams with <= 7 crossings (identified by crossing
+// number and determinant, which is unique in that range).
+const KNOT_NAMES = {
+  '3:3': '3₁ trefoil', '4:5': '4₁ figure-eight', '5:5': '5₁', '5:7': '5₂', '6:9': '6₁', '6:11': '6₂', '6:13': '6₃',
+  '7:7': '7₁', '7:11': '7₂', '7:13': '7₃', '7:15': '7₄', '7:17': '7₅', '7:19': '7₆', '7:21': '7₇',
+};
+
+function buildCatalog() {
+  const entries = [];
+  let keepFixed = false;
+  const add = (id, family, label, board, note = '') => {
+    const diag = buildDiagram(board);
+    if (!diag.isKnotShadow) return;
+    const inv = alternatingInvariants(diag);
+    let knot = '';
+    if (inv && inv.span === diag.N && diag.N <= 7) knot = KNOT_NAMES[`${diag.N}:${inv.determinant}`] || '';
+    entries.push({ id, family, label, board: keepFixed ? board : toShadow(board), crossings: diag.N, knot, determinant: inv ? inv.determinant : null, reduced: inv ? inv.span === diag.N : false, note, rows: board.length, cols: board[0].length });
+  };
+  // controls: shadows whose every resolution is the unknot
+  add('kink-1', 'Deceptive unknot', 'Single kink', [[2, 1, 0], [3, -1, 1], [0, 3, 4]], 'Every resolution is the unknot.');
+  for (const k of [3, 5]) add(`band-${k}`, 'Deceptive unknot', `Capped twisted band (${k})`, platShadow(2, [[0, 1]], [[{ gen: 0, count: k }]]), 'Looks twisted; every resolution untwists.');
+  // torus knots
+  for (const q of [3, 5, 7, 9, 11]) add(`torus-2-${q}`, 'Torus', `T(2,${q})`, twoBridgeShadow([q]));
+  add('torus-3-4', 'Torus', 'T(3,4)', braidClosureShadow(3, [0, 1, 0, 1, 0, 1, 0, 1]), 'Braid closure of (σ₁σ₂)⁴; non-alternating knot 8₁₉ when resolved as a positive braid.');
+  add('torus-3-5', 'Torus', 'T(3,5)', braidClosureShadow(3, [0, 1, 0, 1, 0, 1, 0, 1, 0, 1]), 'Braid closure of (σ₁σ₂)⁵.');
+  // twist knots: n half-twists + clasp
+  for (let n = 1; n <= 8; n++) add(`twist-${n}`, 'Twist', `Twist knot, ${n} half-twist${n > 1 ? 's' : ''}`, twoBridgeShadow([n, 2]));
+  // other 2-bridge knots (Conway notation)
+  for (const cw of [[3, 1, 2], [2, 1, 1, 2], [4, 3], [3, 1, 3], [3, 2, 2], [2, 2, 1, 2], [2, 1, 1, 1, 2], [3, 3, 2], [4, 1, 3], [3, 1, 1, 3]]) {
+    add(`2b-${cw.join('')}`, '2-bridge', `C(${cw.join(',')})`, twoBridgeShadow(cw));
+  }
+  // pretzel knots
+  for (const [p, q, r] of [[1, 1, 3], [1, 3, 3], [3, 3, 3], [2, 3, 3], [1, 3, 5], [3, 3, 5], [2, 3, 5], [2, 3, 7]]) {
+    add(`pretzel-${p}${q}${r}`, 'Pretzel', `P(${p},${q},${r})`, pretzelShadow(p, q, r));
+  }
+  // dense mosaics: boards from the repo plus seeded random dense mosaics
+  add('dense-repo-trefoil', 'Dense', 'Repo trefoil (4×4)', [[0, 2, 1, 0], [2, -1, -1, 1], [3, -1, 8, 4], [0, 3, 4, 0]]);
+  add('dense-repo-default', 'Dense', 'Repo default board (5×5)', [[0, 2, 5, 5, 1], [2, -1, 5, 1, 6], [6, 6, 2, -1, 4], [6, 3, -1, 4, 0], [3, 5, 4, 0, 0]]);
+  add('dense-readme', 'Dense', 'README trefoil (5×5)', [[0, 2, 1, 0, 0], [2, 9, 10, 1, 0], [3, 10, 9, 10, 1], [0, 3, 7, 8, 4], [0, 0, 3, 4, 0]]);
+  const rng = mulberry32(20261105);
+  let made = 0;
+  for (const [size, lo, hi] of [[5, 4, 6], [5, 5, 7], [6, 6, 8], [6, 7, 9], [6, 8, 10], [7, 9, 11]]) {
+    const g = randomDenseShadow(size, rng, { minX: lo, maxX: hi });
+    if (g) add(`dense-rand-${++made}`, 'Dense', `Random dense ${size}×${size} #${made}`, g, 'Seeded random mosaic; may contain reducible crossings.');
+  }
+  // 25×25 boards: full shadows (exact solving impossible; heuristic AI, Jones via row sweep) and
+  // "open region" versions where only the 8 central crossings are in play (solved exactly).
+  const rngL = mulberry32(25252525);
+  const bigs = [];
+  for (const [lo, hi, prob] of [[22, 28, 0.5], [30, 36, 0.7], [37, 46, 0.95]]) { const g = largePlatShadow(rngL, { minX: lo, maxX: hi, prob }); if (g) bigs.push(g); }
+  bigs.forEach((g, k) => {
+    const n = buildDiagram(g).N;
+    add(`large-${k + 1}`, 'Large 25×25', `25×25 plat #${k + 1} (${n} crossings)`, g, 'All crossings open: too large for exact solving. Play two-human or against the heuristic AI; the result is classified by the Jones polynomial (row-sweep algorithm).');
+  });
+  keepFixed = true;
+  bigs.forEach((g, k) => {
+    add(`large-${k + 1}-region`, 'Large 25×25', `25×25 plat #${k + 1}, central 8 open`, openRegion(g, 8, rngL), 'Only the 8 crossings nearest the centre are in play; the rest are fixed. Solved exactly.');
+  });
+  keepFixed = false;
+  return entries;
+}
+
+
+// =============================================================================================
+// App state
+const S = {
+  catalog: buildCatalog(),
+  analysis: new Map(),     // id -> analyzeShadow result (+ difficulty)
+  filter: 'All', view: 'cards',
+  cur: null,               // current game session
+  setup: { first: 'knotter', mode: 'winning', role: 'knotter', strict: true },
+  customBoard: null,
+  session: [],             // game records from this visit
+  db: null, uid: null, label: '', dbStatus: 'connecting',
+  remote: null,            // loaded records from db (owner view)
+};
+const byId = (id) => S.catalog.find((e) => e.id === id);
+const FAMILIES = ['All', ...new Set(S.catalog.map((e) => e.family))];
+const NAME = { knotter: 'Knotter', unknotter: 'Unknotter', undetermined: 'Undetermined' };
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const $ = (sel, root = document) => root.querySelector(sel);
+const pct = (x) => `${Math.round(x * 100)}%`;
+const median = (xs) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+
+// Per-board analysis (cached).  difficulty = share of opening moves that keep the theoretical
+// winner winning (lower share = fewer correct openings = harder to find).
+function analysisOf(entry) {
+  if (S.analysis.has(entry.id)) return S.analysis.get(entry.id);
+  const a = analyzeShadow(entry.board);
+  if (a.ok) {
+    const g = createGame(entry.board);
+    for (const first of ['knotter', 'unknotter']) {
+      const ev = evaluateMoves(g, new Array(g.n).fill(0), first);
+      a[`openShare_${first}`] = ev.mover === ev.winnerNow ? ev.moves.filter((m) => m.winning).length / ev.moves.length : null;
+    }
+    a.density = entry.crossings / (entry.rows * entry.cols);
+  }
+  S.analysis.set(entry.id, a);
+  return a;
+}
+
+// =============================================================================================
+// Mosaic rendering (SVG)
+const MID = [[0.5, 0], [1, 0.5], [0.5, 1], [0, 0.5]];
+const TPAIRS = { 1: [[3, 2]], 2: [[1, 2]], 3: [[0, 1]], 4: [[3, 0]], 5: [[3, 1]], 6: [[0, 2]], 7: [[2, 3], [0, 1]], 8: [[2, 1], [3, 0]] };
+function segPath(x, y, a, b) {
+  const [ax, ay] = MID[a], [bx, by] = MID[b];
+  if ((a + 2) % 4 === b) return `M${x + ax} ${y + ay}L${x + bx} ${y + by}`;
+  return `M${x + ax} ${y + ay}Q${x + 0.5} ${y + 0.5} ${x + bx} ${y + by}`;
+}
+// opts: { interactive, playMap: Map(r*C+c -> j), hints:Set(j), last:{r,c}, pending:{r,c}, stroke, grid }
+function mosaicSVG(board, opts = {}) {
+  const R = board.length, C = board[0].length, sw = opts.stroke || 0.13;
+  const ink = '#0d1821', halo = '#ffffff';
+  let under = '', over = '', marks = '', grid = '';
+  if (opts.grid) {
+    for (let r = 0; r <= R; r++) grid += `M0 ${r}H${C}`;
+    for (let c = 0; c <= C; c++) grid += `M${c} 0V${R}`;
+  }
+  for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+    const t = board[r][c];
+    if (TPAIRS[t]) { for (const [a, b] of TPAIRS[t]) under += segPath(c, r, a, b); continue; }
+    if (t === 9 || t === 10) {
+      const lo = t === 9 ? [0, 2] : [3, 1], hi = t === 9 ? [3, 1] : [0, 2];
+      under += segPath(c, r, lo[0], lo[1]);
+      over += `<path d="${segPath(c, r, hi[0], hi[1])}" stroke="${halo}" stroke-width="${sw * 3.2}"/><path d="${segPath(c, r, hi[0], hi[1])}" stroke="${ink}" stroke-width="${sw}"/>`;
+    } else if (t === -1) {
+      under += segPath(c, r, 0, 2) + segPath(c, r, 3, 1);
+      const j = opts.playMap ? opts.playMap.get(r * C + c) : undefined;
+      const hint = opts.hints && j !== undefined && opts.hints.has(j);
+      const pend = opts.pending && opts.pending.r === r && opts.pending.c === c;
+      const ringColor = pend ? '#344966' : hint ? '#5f7d1e' : '#93a45f';
+      const cls = opts.interactive && j !== undefined ? ' class="xc" data-j="' + j + '"' : '';
+      marks += `<g${cls}><circle cx="${c + 0.5}" cy="${r + 0.5}" r="0.36" fill="${hint ? 'rgba(191,204,148,.55)' : 'rgba(191,204,148,.28)'}"/><circle class="ring" cx="${c + 0.5}" cy="${r + 0.5}" r="0.36" fill="none" stroke="${ringColor}" stroke-width="${pend || hint ? 0.09 : 0.055}"/>${opts.labels && j !== undefined ? `<text x="${c + 0.5}" y="${r + 0.5}" font-size="0.32" text-anchor="middle" dominant-baseline="central" fill="#2a3b54" font-weight="700" style="pointer-events:none">${j + 1}</text>` : ''}</g>`;
+    }
+    if (opts.last && opts.last.r === r && opts.last.c === c) marks += `<rect x="${c + 0.06}" y="${r + 0.06}" width="0.88" height="0.88" rx="0.18" fill="none" stroke="#a94f4a" stroke-width="0.06" stroke-dasharray="0.12 0.08"/>`;
+  }
+  const pad = 0.15;
+  return `<svg viewBox="${-pad} ${-pad} ${C + 2 * pad} ${R + 2 * pad}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Knot mosaic ${R} by ${C}">
+    ${opts.grid ? `<path d="${grid}" stroke="#d9e6f8" stroke-width="0.02" fill="none"/>` : ''}
+    <g fill="none" stroke-linecap="round"><path d="${under}" stroke="${ink}" stroke-width="${sw}"/>${over}</g>${marks}</svg>`;
+}
+function alternatingBoard(entry) {
+  const d = buildDiagram(entry.board);
+  const b = entry.board.map((r) => r.slice());
+  if (d.altTile) d.crossings.forEach((x, i) => { b[x.r][x.c] = d.altTile[i]; });
+  return b;
+}
+function tileIcon(t) { return mosaicSVG([[t]], { stroke: 0.16 }).replace('<svg ', '<svg width="44" height="44" '); }
+
+// =============================================================================================
+// Router
+const ROUTES = { catalog: viewCatalog, play: viewPlay, atlas: viewAtlas, data: viewData, about: viewAbout };
+function route() {
+  const r = (location.hash || '#catalog').slice(1);
+  const name = ROUTES[r] ? r : 'catalog';
+  document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('active', a.dataset.r === name));
+  ROUTES[name]();
+}
+window.addEventListener('hashchange', route);
+function go(r) { if (location.hash === '#' + r) route(); else location.hash = r; }
+
+// =============================================================================================
+// Catalog
+function viewCatalog() {
+  const list = S.catalog.filter((e) => S.filter === 'All' || e.family === S.filter);
+  $('#app').innerHTML = `
+    <div class="hero">
+      <div>
+        <h1>Pick a knot shadow, then play it</h1>
+        <p class="lede">Each picture is a knot drawn as a mosaic. Click one to open it as a game board: the over/under information is erased and two players take turns choosing it, one crossing at a time. The <b>Knotter</b> wants the finished diagram to be knotted, the <b>Unknotter</b> wants it to come apart.</p>
+        <div class="legend"><span><span class="pill k">K</span> Knotter wins</span><span><span class="pill u">U</span> Unknotter wins</span><span><span class="pill flip">order matters</span> the first mover changes the winner</span><span>Prior: share of all resolutions that are knotted</span></div>
+      </div>
+      <div class="callout">
+        <h3>The questions for this prototype</h3>
+        <p>Does it matter who goes first? Which player has the winning strategy on each family (twist, torus, 2-bridge, pretzel, dense mosaics)?</p>
+        <p>When a human is handed the winning side against the AI, which knot structures do people actually manage to play correctly?</p>
+      </div>
+    </div>
+    <div class="toolbar">
+      <div class="seg" role="group" aria-label="Family" style="flex-wrap:wrap">${FAMILIES.map((f) => `<button data-f="${esc(f)}" aria-pressed="${S.filter === f}">${esc(f)}</button>`).join('')}</div>
+      <div class="seg" role="group" aria-label="View" style="margin-left:auto">
+        <button data-v="cards" aria-pressed="${S.view === 'cards'}">Pictures</button><button data-v="list" aria-pressed="${S.view === 'list'}">List</button>
+      </div>
+    </div>
+    <div id="catbody"></div>`;
+  $('#app').querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { S.filter = b.dataset.f; viewCatalog(); });
+  $('#app').querySelectorAll('[data-v]').forEach((b) => b.onclick = () => { S.view = b.dataset.v; viewCatalog(); });
+  const body = $('#catbody');
+  const badges = (a) => a && a.ok ? `
+      <span class="pill ${a.winnerIfKnotterFirst === 'knotter' ? 'k' : 'u'}" title="Knotter moves first">K first → ${a.winnerIfKnotterFirst === 'knotter' ? 'K' : 'U'}</span>
+      <span class="pill ${a.winnerIfUnknotterFirst === 'knotter' ? 'k' : 'u'}" title="Unknotter moves first">U first → ${a.winnerIfUnknotterFirst === 'knotter' ? 'K' : 'U'}</span>
+      ${a.firstMoverMatters ? '<span class="pill flip">order matters</span>' : ''}` : (a && a.unsolvable ? '<span class="pill" title="Too many open crossings for exact solving">too large to solve · heuristic AI</span>' : '');
+  if (S.view === 'cards') {
+    body.innerHTML = `<div class="grid-cards">${list.map((e) => {
+      const a = analysisOf(e);
+      return `<div class="card kcard" data-id="${e.id}" tabindex="0" role="button" aria-label="Play ${esc(e.label)}">
+        <div class="thumb">${mosaicSVG(alternatingBoard(e), { stroke: 0.16 })}</div>
+        <div class="body"><div class="fam">${esc(e.family)}</div><h3>${esc(e.label)}</h3>
+          <div class="muted">${e.crossings} crossing${e.crossings === 1 ? '' : 's'}${e.knot ? ` · ${esc(e.knot)}` : ''}${a && a.ok ? ` · prior ${pct(a.knottedFraction)} knotted` : ''}</div>
+          <div class="row">${badges(a)}</div></div></div>`;
+    }).join('')}</div>`;
+  } else {
+    body.innerHTML = `<div class="card tablewrap"><table><thead><tr><th>Shadow</th><th>Family</th><th>Crossings</th><th>Alternating knot</th><th>Prior (knotted)</th><th>Perfect play</th></tr></thead><tbody>
+      ${list.map((e) => { const a = analysisOf(e); return `<tr class="click" data-id="${e.id}"><td><b>${esc(e.label)}</b></td><td>${esc(e.family)}</td><td>${e.crossings}</td><td>${esc(e.knot || (e.determinant ? `det ${e.determinant}` : '—'))}</td><td>${a.ok ? pct(a.knottedFraction) : '—'}</td><td><div class="row">${badges(a)}</div></td></tr>`; }).join('')}
+      </tbody></table></div>`;
+  }
+  body.querySelectorAll('[data-id]').forEach((el) => {
+    el.onclick = () => openBoard(el.dataset.id);
+    el.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openBoard(el.dataset.id); } };
+  });
+}
+
+function openBoard(id) {
+  const entry = id === 'custom' ? S.customBoard : byId(id);
+  stopAI();
+  S.cur = { entry, game: createGame(entry.board), started: false };
+  go('play');
+}
+
+// =============================================================================================
+// Play
+function stopAI() { if (S.cur && S.cur.aiTimer) { clearTimeout(S.cur.aiTimer); S.cur.aiTimer = null; } }
+
+function currentBoard(cur) {
+  const b = cur.entry.board.map((r) => r.slice());
+  if (cur.assign) cur.assign.forEach((t, j) => { if (t) { const x = cur.game.diag.crossings[cur.game.playable[j]]; b[x.r][x.c] = t; } });
+  return b;
+}
+function playMap(game) { const m = new Map(); game.playable.forEach((i, j) => { const x = game.diag.crossings[i]; m.set(x.r * game.diag.C + x.c, j); }); return m; }
+
+function viewPlay() {
+  if (!S.cur) S.cur = { entry: byId('twist-2'), game: createGame(byId('twist-2').board), started: false };
+  const cur = S.cur, e = cur.entry;
+  if (!cur.game.ok) {
+    $('#app').innerHTML = `<div class="card pad"><h2>${esc(e.label)}</h2><div class="alert bad" style="margin-top:10px">${cur.game.errors.map(esc).join('<br>')}</div><p><button class="btn" onclick="location.hash='catalog'">Back to catalog</button></p></div>`;
+    return;
+  }
+  $('#app').innerHTML = `
+    <div class="playgrid">
+      <section>
+        <div class="row" style="justify-content:space-between;margin-bottom:10px">
+          <div><div class="muted" style="text-transform:uppercase;letter-spacing:.1em;font-weight:600;font-size:.74rem">${esc(e.family)}</div><h1 style="font-size:1.7rem">${esc(e.label)}</h1></div>
+          <div class="row"><button class="btn small" id="b3d">View in 3D</button><a class="btn small" href="#catalog">Catalog</a></div>
+        </div>
+        <div class="boardwrap" id="boardwrap"></div>
+        <div class="legend"><span><svg width="16" height="16"><circle cx="8" cy="8" r="6" fill="rgba(191,204,148,.4)" stroke="#93a45f" stroke-width="1.5"/></svg> unresolved crossing (click to play)</span><span><svg width="16" height="16"><circle cx="8" cy="8" r="6" fill="rgba(191,204,148,.7)" stroke="#5f7d1e" stroke-width="2.5"/></svg> hint: a winning move</span><span><svg width="16" height="16"><rect x="2" y="2" width="12" height="12" rx="3" fill="none" stroke="#a94f4a" stroke-width="1.5" stroke-dasharray="3 2"/></svg> last move</span></div>
+      </section>
+      <aside class="side" id="side"></aside>
+    </div>`;
+  $('#b3d').onclick = () => open3D(currentBoard(cur));
+  renderBoard(); renderSide();
+}
+
+function renderBoard() {
+  const cur = S.cur, wrap = $('#boardwrap'); if (!wrap) return;
+  const humanTurn = cur.started && !cur.over && isHuman(cur, moverOf(cur.assign, cur.first));
+  wrap.innerHTML = mosaicSVG(currentBoard(cur), {
+    interactive: humanTurn, playMap: playMap(cur.game), hints: cur.showHints ? cur.hintSet : null,
+    last: cur.last, pending: cur.pending, grid: true, labels: true,
+  });
+  if (humanTurn) wrap.querySelectorAll('.xc').forEach((g) => g.addEventListener('click', (ev) => choose(Number(g.dataset.j), ev)));
+  if (cur.pending) showPopover();
+}
+
+function isHuman(cur, role) { return cur.humans.includes(role); }
+
+function theoryTable(a) {
+  if (a && a.unsolvable) return `<div class="alert">${esc(a.errors[0])}<br><span class="muted">You can still play it (two humans, or against the heuristic AI, which searches exactly once 3 crossings remain). The result is classified by the Jones polynomial with the row-sweep algorithm, which handles boards up to 25×25 and beyond.</span></div>`;
+  if (!a || !a.ok) return '';
+  const cell = (w) => `<span class="pill ${w === 'knotter' ? 'k' : 'u'}">${NAME[w]}</span>`;
+  return `<table class="theory"><thead><tr><th>Who moves first</th><th>Wins with perfect play</th></tr></thead><tbody>
+    <tr><td>Knotter (P1 = K)</td><td>${cell(a.winnerIfKnotterFirst)}</td></tr>
+    <tr><td>Unknotter (P1 = U)</td><td>${cell(a.winnerIfUnknotterFirst)}</td></tr></tbody></table>
+    <div class="muted" style="margin-top:6px">${a.firstMoverMatters ? '<b>Order matters here:</b> whoever moves first decides the winner.' : `Order does not matter: the <b>${NAME[a.winnerIfKnotterFirst]}</b> wins either way.`} ${(a.knottedFraction * 100).toFixed(1)}% of all ${2 ** a.playable} resolutions are knotted.</div>`;
+}
+
+function renderSide() {
+  const cur = S.cur, side = $('#side'); if (!side) return;
+  const a = cur.entry.id === 'custom' ? analyzeShadow(cur.entry.board) : analysisOf(cur.entry);
+  const info = `<div class="card pad"><div class="stat2">
+      <div class="stat"><div class="l">Crossings</div><div class="v">${cur.game.diag.N} <span class="muted">(${cur.game.n} to play)</span></div></div>
+      <div class="stat"><div class="l">Alternating knot</div><div class="v">${esc(cur.entry.knot || (cur.entry.determinant ? 'det ' + cur.entry.determinant : '—'))}</div></div>
+    </div><div style="margin-top:12px">${theoryTable(a)}</div></div>`;
+  if (!cur.started) {
+    const st = S.setup;
+    const solvable = cur.game.solvable;
+    if (!solvable && st.mode === 'winning') st.mode = 'choose';
+    const W = a.ok ? (st.first === 'knotter' ? a.winnerIfKnotterFirst : a.winnerIfUnknotterFirst) : null;
+    side.innerHTML = info + `<div class="card pad" style="display:flex;flex-direction:column;gap:12px">
+      <h2>New game</h2>
+      <label class="f">Who moves first (P1)?<div class="seg" id="sfirst"><button data-v="knotter" aria-pressed="${st.first === 'knotter'}">Knotter</button><button data-v="unknotter" aria-pressed="${st.first === 'unknotter'}">Unknotter</button></div></label>
+      <label class="f">Mode<select id="smode">
+        ${solvable ? `<option value="winning" ${st.mode === 'winning' ? 'selected' : ''}>Human takes the winning side vs AI</option>` : ''}
+        <option value="choose" ${st.mode === 'choose' ? 'selected' : ''}>Choose my side vs ${solvable ? 'AI' : 'heuristic AI'}</option>
+        <option value="hotseat" ${st.mode === 'hotseat' ? 'selected' : ''}>Two humans (hot seat)</option>
+        <option value="watch" ${st.mode === 'watch' ? 'selected' : ''}>Watch AI vs AI</option></select></label>
+      ${st.mode === 'choose' ? `<label class="f">My side<div class="seg" id="srole"><button data-v="knotter" aria-pressed="${st.role === 'knotter'}">Knotter</button><button data-v="unknotter" aria-pressed="${st.role === 'unknotter'}">Unknotter</button></div></label>` : ''}
+      ${solvable && (st.mode === 'winning' || st.mode === 'choose') ? `<label class="f">Coaching<div class="seg" id="sstrict"><button data-v="1" aria-pressed="${st.strict}">Strict: must play winning moves</button><button data-v="0" aria-pressed="${!st.strict}">Free</button></div></label>
+      <div class="muted">${st.strict ? 'Strict: a move that throws away the win is rejected and logged as an error; try again.' : 'Free: mistakes stand, and the AI will punish them.'}</div>` : ''}
+      ${st.mode === 'winning' && W ? `<div class="alert good">With ${NAME[st.first]} first, the <b>${NAME[W]}</b> has the winning strategy, so <b>you play ${NAME[W]}</b> and the AI defends the losing side.</div>` : ''}
+      <label class="f">Participant label (optional, for the experiment log)<input type="text" id="slabel" value="${esc(S.label)}" placeholder="e.g. P07"></label>
+      <button class="btn primary block" id="sstart">Start game</button>
+      <details><summary class="muted" style="cursor:pointer">Load a custom board</summary>
+        <p class="muted">Paste rows of tile numbers (Mosaic Maker export works). Use -1 or 11 for unresolved crossings; resolved 9/10 stay fixed.</p>
+        <textarea id="scustom" rows="6" style="width:100%" placeholder="[[0,2,1,0],[2,-1,-1,1],[3,-1,8,4],[0,3,4,0]]"></textarea>
+        <div class="row" style="margin-top:6px"><button class="btn small" id="sload">Load board</button><span id="serr" class="muted"></span></div>
+      </details></div>`;
+    side.querySelectorAll('#sfirst button').forEach((b) => b.onclick = () => { st.first = b.dataset.v; renderSide(); });
+    side.querySelectorAll('#srole button').forEach((b) => b.onclick = () => { st.role = b.dataset.v; renderSide(); });
+    side.querySelectorAll('#sstrict button').forEach((b) => b.onclick = () => { st.strict = b.dataset.v === '1'; renderSide(); });
+    $('#smode').onchange = (ev) => { st.mode = ev.target.value; renderSide(); };
+    $('#slabel').oninput = (ev) => { S.label = ev.target.value.trim(); };
+    $('#sstart').onclick = () => startGame(W);
+    $('#sload').onclick = () => {
+      try {
+        const txt = $('#scustom').value.trim();
+        const board = normalizeBoard(txt.includes('[[') ? txt : '[' + txt.replace(/\]\s*\[/g, '],[') + ']');
+        const errs = validateBoard(board);
+        if (errs.length) throw new Error(errs.slice(0, 3).join('; '));
+        const d = buildDiagram(board);
+        const inv = alternatingInvariants(d);
+        S.customBoard = { id: 'custom', family: 'Custom', label: 'Custom board', board, crossings: d.N, knot: '', determinant: inv ? inv.determinant : null, rows: board.length, cols: board[0].length };
+        openBoard('custom');
+      } catch (err) { $('#serr').textContent = err.message; }
+    };
+    return;
+  }
+  const mover = cur.over ? null : moverOf(cur.assign, cur.first);
+  const humanTurn = mover && isHuman(cur, mover);
+  const youAre = cur.mode === 'hotseat' ? 'Two humans' : cur.mode === 'watch' ? 'AI vs AI' : `You are the <b>${NAME[cur.humans[0]]}</b>`;
+  let status = '';
+  if (cur.over) {
+    const f = cur.final;
+    const humanWon = cur.humans.length === 1 && cur.winner !== 'undetermined' ? cur.winner === cur.humans[0] : null;
+    const how = f.is_unknot === false ? 'Certified knotted: the Jones polynomial is not 1.'
+      : f.is_unknot === true ? (f.reduced_crossings === 0 ? 'Certified unknot: Reidemeister moves remove every crossing.' : `Certified unknot: Jones = 1 and the diagram simplifies to ${f.reduced_crossings} crossings (< 25, where Jones detects the unknot).`)
+      : f.research_candidate ? `<b>Research candidate:</b> Jones = 1, but the diagram still has ${f.reduced_crossings} crossings after simplification (≥ 25). It is the unknot unless it is a counterexample to the Jones unknot conjecture. Save the board!` : esc(f.reason || '');
+    status = `<div class="alert ${humanWon === false ? 'bad' : 'good'}"><b>${cur.winner === 'undetermined' ? 'Winner undetermined.' : `${NAME[cur.winner]} wins.`}</b> ${f.is_unknot === null ? '' : `The diagram is ${f.is_unknot ? 'the <b>unknot</b>' : 'a <b>knot</b>'}.`}<br><span class="muted">${how}<br>Jones polynomial: ${esc(f.jones_polynomial || '—')}${f.determinant != null ? ` · det ${f.determinant}` : ''} · ${f.num_crossings} crossings${f.method ? ` · ${f.method === 'row_sweep' ? 'row-sweep algorithm' : 'state sum'}` : ''}</span>${cur.mode !== 'hotseat' && cur.mode !== 'watch' ? `<br>${cur.errors} rejected/losing move${cur.errors === 1 ? '' : 's'} · ${cur.hints} hint${cur.hints === 1 ? '' : 's'}` : ''}</div>`;
+  } else {
+    status = `<div class="turn"><span class="dot ${mover === 'knotter' ? 'k' : 'u'}"></span>${NAME[mover]} to move ${humanTurn ? '<span class="pill">your turn</span>' : '<span class="spinner"></span>'}</div>
+      ${cur.flash ? `<div class="alert ${cur.flash.kind}">${cur.flash.text}</div>` : ''}
+      <div class="muted">${humanTurn ? 'Click a highlighted crossing, then choose which strand goes over.' : cur.mode === 'watch' ? 'Watching perfect play by both sides.' : 'The AI is choosing…'}</div>`;
+  }
+  side.innerHTML = info + `<div class="card pad" style="display:flex;flex-direction:column;gap:10px">
+      <div class="row" style="justify-content:space-between"><h2>Game</h2><span class="muted">${youAre} · P1 = ${NAME[cur.first]}</span></div>
+      ${status}
+      <div class="row">
+        ${!cur.over && humanTurn && cur.mode !== 'hotseat' && cur.game.solvable ? `<button class="btn small" id="bhint">${cur.showHints ? 'Hide hint' : 'Hint'}</button>` : ''}
+        ${!cur.over && cur.mode === 'hotseat' && cur.game.solvable ? `<button class="btn small" id="bhint">${cur.showHints ? 'Hide hints' : 'Show winning moves'}</button>` : ''}
+        <button class="btn small" id="brestart">${cur.over ? 'Play again' : 'Restart'}</button>
+        <button class="btn small" id="bnew">New setup</button>
+      </div>
+      <div><div class="muted" style="font-weight:600">Moves</div><ol class="log">${cur.log.map((l) => `<li>${l}</li>`).join('') || '<li class="muted">No moves yet</li>'}</ol></div>
+    </div>`;
+  const bh = $('#bhint'); if (bh) bh.onclick = () => { cur.showHints = !cur.showHints; if (cur.showHints) { cur.hints++; cur.hintUsedThisMove = true; } renderBoard(); renderSide(); };
+  $('#brestart').onclick = () => { stopAI(); startGame(cur.theory); };
+  $('#bnew').onclick = () => { stopAI(); S.cur = { entry: cur.entry, game: cur.game, started: false }; viewPlay(); };
+}
+
+function startGame(W) {
+  const cur = S.cur, st = S.setup;
+  stopAI();
+  const theoryW = cur.game.solvable ? theoreticalWinner(cur.game, st.first) : null;
+  let humans;
+  if (st.mode === 'winning' && theoryW) humans = [theoryW];
+  else if (st.mode === 'winning') humans = [st.role];
+  else if (st.mode === 'choose') humans = [st.role];
+  else if (st.mode === 'hotseat') humans = ['knotter', 'unknotter'];
+  else humans = [];
+  Object.assign(cur, {
+    started: true, over: false, first: st.first, mode: st.mode, strict: cur.game.solvable && st.strict && (st.mode === 'winning' || st.mode === 'choose'),
+    humans, theory: theoryW, assign: new Array(cur.game.n).fill(0), log: [], events: [], errors: 0, hints: 0,
+    showHints: false, pending: null, last: null, flash: null, t0: Date.now(), turnStart: Date.now(),
+    gameId: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+  });
+  refreshHints(); renderBoard(); renderSide(); maybeAI();
+}
+
+function refreshHints() {
+  const cur = S.cur;
+  if (cur.over || !cur.game.solvable) { cur.hintSet = new Set(); cur.eval = null; return; }
+  const ev = evaluateMoves(cur.game, cur.assign, cur.first);
+  cur.eval = ev;
+  cur.hintSet = new Set(ev.moves.filter((m) => m.winning).map((m) => m.j));
+}
+
+function choose(j, ev) {
+  const cur = S.cur;
+  cur.pending = { j, ...(() => { const x = cur.game.diag.crossings[cur.game.playable[j]]; return { r: x.r, c: x.c }; })() };
+  cur.popAt = { x: ev.clientX, y: ev.clientY };
+  renderBoard();
+}
+
+function showPopover() {
+  const cur = S.cur, wrap = $('#boardwrap');
+  const rect = wrap.getBoundingClientRect();
+  const pop = document.createElement('div');
+  pop.className = 'pop';
+  const win = (t) => cur.showHints && cur.eval && cur.eval.moves.some((m) => m.j === cur.pending.j && m.tile === t && m.winning);
+  const opt = (t, label) => `<button class="opt" data-t="${t}" ${win(t) ? 'style="border-color:#5f7d1e;background:var(--honey-100)"' : ''}>${tileIcon(t)}${label}${win(t) ? ' ✓' : ''}</button>`;
+  pop.innerHTML = `<div style="font-weight:700">Crossing ${cur.pending.j + 1}: which strand goes over?</div>
+    <div class="opts">${opt(9, 'Horizontal over')}${opt(10, 'Vertical over')}</div>
+    <button class="btn small" data-t="0">Cancel</button>`;
+  wrap.appendChild(pop);
+  let x = cur.popAt.x - rect.left + 12, y = cur.popAt.y - rect.top + 12;
+  x = Math.min(x, rect.width - 230); y = Math.min(y, rect.height - 150);
+  pop.style.left = Math.max(6, x) + 'px'; pop.style.top = Math.max(6, y) + 'px';
+  pop.querySelectorAll('[data-t]').forEach((b) => b.onclick = (e2) => {
+    e2.stopPropagation();
+    const t = Number(b.dataset.t), j = cur.pending.j;
+    cur.pending = null;
+    if (t) humanMove(j, t); else renderBoard();
+  });
+}
+
+function describe(role, j, tile, extra = '') {
+  return `<span class="dot ${role === 'knotter' ? 'k' : 'u'}"></span> ${NAME[role]}: crossing ${j + 1} → ${tile === 9 ? 'horizontal' : 'vertical'} over${extra}`;
+}
+
+function humanMove(j, tile) {
+  const cur = S.cur;
+  const mover = moverOf(cur.assign, cur.first);
+  const ev = cur.eval;
+  const m = ev ? ev.moves.find((x) => x.j === j && x.tile === tile) : { crossing: cur.game.playable[j], winning: null };
+  const nWin = ev ? ev.moves.filter((x) => x.winning).length : 0;
+  const event = {
+    moveNo: cur.assign.filter((x) => x).length + 1, role: mover, j, crossing: m.crossing, tile,
+    winning: m.winning, nWinning: ev ? nWin : null, nMoves: ev ? ev.moves.length : null, ms: Date.now() - cur.turnStart,
+    hint: !!cur.hintUsedThisMove, rejected: false,
+  };
+  const trackable = cur.mode === 'winning' || cur.mode === 'choose';
+  if (trackable && nWin > 0 && !m.winning) {
+    cur.errors++;
+    if (cur.strict) {
+      event.rejected = true; cur.events.push(event);
+      cur.flash = { kind: 'bad', text: `That move hands the win to the ${NAME[other(mover)]}. Look for a different move.` };
+      renderBoard(); renderSide();
+      return;
+    }
+  }
+  cur.events.push(event);
+  cur.flash = trackable && nWin > 0 ? (m.winning ? { kind: 'good', text: 'Good move: you are still winning.' } : { kind: 'bad', text: 'That move lost the winning strategy. The AI can now win.' }) : null;
+  applyMove(mover, j, tile, trackable && nWin > 0 ? (m.winning ? ' ✓' : ' ✗') : '');
+}
+
+function applyMove(role, j, tile, mark = '') {
+  const cur = S.cur;
+  cur.assign[j] = tile;
+  const x = cur.game.diag.crossings[cur.game.playable[j]];
+  cur.last = { r: x.r, c: x.c };
+  cur.log.push(describe(role, j, tile, mark));
+  cur.showHints = false; cur.hintUsedThisMove = false; cur.turnStart = Date.now();
+  if (cur.assign.every((t) => t)) return finish();
+  refreshHints(); renderBoard(); renderSide(); maybeAI();
+}
+
+function maybeAI() {
+  const cur = S.cur;
+  if (cur.over) return;
+  const mover = moverOf(cur.assign, cur.first);
+  if (isHuman(cur, mover)) return;
+  cur.aiTimer = setTimeout(() => {
+    cur.aiTimer = null;
+    if (S.cur !== cur || cur.over) return;
+    const m = cur.game.solvable ? aiMove(cur.game, cur.assign, cur.first) : heuristicMove(cur.game, cur.assign, cur.first);
+    if (cur.mode !== 'watch') cur.flash = null;
+    applyMove(mover, m.j, m.tile, m.why === 'trap' ? ' <span class="muted">(trap)</span>' : m.why === 'exact' ? ' <span class="muted">(exact endgame)</span>' : '');
+  }, cur.mode === 'watch' ? 900 : 650);
+}
+
+function finish() {
+  const cur = S.cur;
+  cur.over = true; cur.flash = null; cur.pending = null;
+  const final = classifyBoard(currentBoard(cur));
+  cur.final = final;
+  cur.winner = final.is_unknot === false ? 'knotter' : final.is_unknot === true ? 'unknotter' : 'undetermined';
+  refreshHints(); renderBoard(); renderSide();
+  if (cur.mode === 'winning' || cur.mode === 'choose') recordGame(cur);
+}
+
+// =============================================================================================
+// Experiment logging
+function recordGame(cur) {
+  const e = cur.entry;
+  const accepted = cur.events.filter((x) => !x.rejected);
+  const rec = {
+    v: 1, gameId: cur.gameId, createdAt: new Date().toISOString(), participant: S.label || null,
+    boardId: e.id, family: e.family, label: e.label, crossings: cur.game.diag.N, playable: cur.game.n,
+    rows: e.rows, cols: e.cols, density: +(cur.game.diag.N / (e.rows * e.cols)).toFixed(4),
+    firstPlayer: cur.first, humanRole: cur.humans[0], mode: cur.mode, strict: cur.strict,
+    theoreticalWinner: cur.theory, winner: cur.winner, humanWon: cur.winner === 'undetermined' ? null : cur.winner === cur.humans[0], solvable: cur.game.solvable, certified: cur.final.certified ?? null,
+    errors: cur.errors, hints: cur.hints, humanMoves: accepted.length,
+    optimalMoves: cur.game.solvable ? accepted.filter((x) => x.winning || x.nWinning === 0).length : null,
+    medianMoveMs: median(accepted.map((x) => x.ms)), durationMs: Date.now() - cur.t0,
+    finalBoard: currentBoard(cur), jones: cur.final.jones_polynomial, events: cur.events,
+    initialBoard: e.board,
+  };
+  S.session.push(rec);
+  saveRemote(rec);
+}
+
+async function initDB() {
+  try {
+    if (!window.claude || !window.claude.use) { S.dbStatus = 'unavailable'; return; }
+    const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    if (!db || !user) { S.dbStatus = 'unavailable'; return; }
+    S.db = db; S.user = user;
+    S.uid = await user.id();
+    try { S.canSeeAll = !!(await user.canEdit()); } catch { S.canSeeAll = false; }
+    S.dbStatus = S.uid ? 'connected' : 'unavailable';
+  } catch (err) { S.dbStatus = 'unavailable'; S.dbError = String(err && err.message || err); }
+  if (location.hash === '#data') viewData();
+}
+
+async function saveRemote(rec) {
+  if (!S.db || !S.uid) { rec._saved = 'local only'; return; }
+  try {
+    await S.db.doc(`trials/${S.uid}`).set({ uid: S.uid, participant: S.label || null, lastSeen: rec.createdAt });
+    const { initialBoard, finalBoard, ...rest } = rec;
+    await S.db.collection(`trials/${S.uid}/games`).doc(rec.gameId).set({ ...rest, initialBoard: JSON.stringify(initialBoard), finalBoard: JSON.stringify(finalBoard), events: JSON.stringify(rec.events) });
+    rec._saved = 'saved';
+  } catch (err) { rec._saved = 'save failed: ' + (err && err.message || err); }
+  if (location.hash === '#data') viewData();
+}
+
+async function loadRemote() {
+  if (!S.db) return;
+  S.remote = { loading: true, rows: [] };
+  viewData();
+  const rows = [];
+  let scope = 'everyone';
+  try {
+    let people = [];
+    if (S.canSeeAll) { try { people = (await S.db.collection('trials').get()).docs || []; } catch { people = []; } }
+    if (!S.canSeeAll) scope = 'you';
+    const ids = people.map((p) => p.id).filter(Boolean);
+    if (!ids.includes(S.uid)) ids.push(S.uid);
+    for (const id of ids) {
+      try {
+        const snap = await S.db.collection(`trials/${id}/games`).get();
+        for (const d of snap.docs || []) { const x = typeof d.data === 'function' ? d.data() : d.data; if (x) rows.push({ ...x, events: safeJSON(x.events, []) , uid: id }); }
+      } catch { /* not readable */ }
+    }
+    S.remote = { loading: false, rows, scope };
+  } catch (err) { S.remote = { loading: false, rows, scope, error: String(err && err.message || err) }; }
+  viewData();
+}
+function safeJSON(s, d) { try { return typeof s === 'string' ? JSON.parse(s) : (s || d); } catch { return d; } }
+
+// =============================================================================================
+// Atlas
+function viewAtlas() {
+  const rows = S.catalog.map((e) => ({ e, a: analysisOf(e) })).filter((x) => x.a.ok);
+  const count = (f) => rows.filter(f).length;
+  const famStats = FAMILIES.slice(1).map((f) => {
+    const rs = rows.filter((x) => x.e.family === f);
+    return { f, n: rs.length, matters: rs.filter((x) => x.a.firstMoverMatters).length, kAlways: rs.filter((x) => x.a.winnerIfKnotterFirst === 'knotter' && x.a.winnerIfUnknotterFirst === 'knotter').length, uAlways: rs.filter((x) => x.a.winnerIfKnotterFirst === 'unknotter' && x.a.winnerIfUnknotterFirst === 'unknotter').length };
+  });
+  const share = (v) => v == null ? '<span class="muted">—</span>' : pct(v);
+  $('#app').innerHTML = `
+    <h1>First-mover atlas</h1>
+    <p class="lede">Every shadow in the catalog is solved exactly (minimax over all ${'3ⁿ'} game states, with every finished diagram classified by its Jones polynomial). This answers <i>does it matter who goes first?</i> board by board, and says which side to hand to the human.</p>
+    <div class="stat2" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+      <div class="stat"><div class="l">Shadows solved</div><div class="v">${rows.length}</div></div>
+      <div class="stat"><div class="l">Unknotter always wins</div><div class="v">${count((x) => x.a.winnerIfKnotterFirst === 'unknotter' && x.a.winnerIfUnknotterFirst === 'unknotter')}</div></div>
+      <div class="stat"><div class="l">Knotter always wins</div><div class="v">${count((x) => x.a.winnerIfKnotterFirst === 'knotter' && x.a.winnerIfUnknotterFirst === 'knotter')}</div></div>
+      <div class="stat"><div class="l">First mover decides</div><div class="v">${count((x) => x.a.firstMoverMatters)}</div></div>
+    </div>
+    <div class="card pad" style="margin-bottom:16px"><h2 style="font-size:1.15rem;margin-bottom:8px">By family</h2>
+      <table><thead><tr><th>Family</th><th>Shadows</th><th>Unknotter always</th><th>Knotter always</th><th>First mover decides</th></tr></thead><tbody>
+      ${famStats.map((s) => `<tr><td><b>${esc(s.f)}</b></td><td>${s.n}</td><td>${s.uAlways}</td><td>${s.kAlways}</td><td>${s.matters}</td></tr>`).join('')}</tbody></table></div>
+    <div class="card tablewrap"><table><thead><tr><th>Shadow</th><th>Family</th><th>Crossings</th><th>Density</th><th>K first →</th><th>U first →</th><th>Order matters</th><th>Prior knotted</th><th title="Share of the winner's opening moves that keep the win (lower = harder to find)">Winning openings (K first / U first)</th></tr></thead><tbody>
+      ${rows.map(({ e, a }) => `<tr class="click" data-id="${e.id}"><td><b>${esc(e.label)}</b>${e.knot ? `<div class="muted">${esc(e.knot)}</div>` : ''}</td><td>${esc(e.family)}</td><td>${e.crossings}</td><td>${a.density.toFixed(2)}</td>
+        <td><span class="pill ${a.winnerIfKnotterFirst === 'knotter' ? 'k' : 'u'}">${NAME[a.winnerIfKnotterFirst]}</span></td>
+        <td><span class="pill ${a.winnerIfUnknotterFirst === 'knotter' ? 'k' : 'u'}">${NAME[a.winnerIfUnknotterFirst]}</span></td>
+        <td>${a.firstMoverMatters ? '<span class="pill flip">yes</span>' : 'no'}</td><td>${pct(a.knottedFraction)}</td>
+        <td>${share(a.openShare_knotter)} / ${share(a.openShare_unknotter)}</td></tr>`).join('')}
+    </tbody></table></div>
+    ${S.catalog.filter((e) => analysisOf(e).unsolvable).length ? `<p class="muted">Not in the table: ${S.catalog.filter((e) => analysisOf(e).unsolvable).map((e) => esc(e.label)).join(', ')}. These have too many open crossings for exact solving. Their “central 8 open” versions are included.</p>` : ''}
+    <p class="muted">Density = crossings ÷ mosaic cells, a first proxy for how “densely packed” a picture is. Winning openings = among all ${'2 × (open crossings)'} first moves of the side that is to move, the share that keep a forced win (shown only when the mover is the theoretical winner).</p>`;
+  $('#app').querySelectorAll('tr[data-id]').forEach((tr) => tr.onclick = () => openBoard(tr.dataset.id));
+}
+
+// =============================================================================================
+// Data
+function viewData() {
+  const remoteRows = S.remote && S.remote.rows ? S.remote.rows : [];
+  const ids = new Set(remoteRows.map((r) => r.gameId));
+  const rows = [...remoteRows, ...S.session.filter((r) => !ids.has(r.gameId))];
+  const fam = FAMILIES.slice(1).map((f) => {
+    const rs = rows.filter((r) => r.family === f);
+    const moves = rs.reduce((s, r) => s + (r.humanMoves || 0), 0), opt = rs.reduce((s, r) => s + (r.optimalMoves || 0), 0);
+    const ms = rs.map((r) => r.medianMoveMs).filter((x) => x != null);
+    return { f, games: rs.length, win: rs.length ? rs.filter((r) => r.humanWon).length / rs.length : null, err: rs.reduce((s, r) => s + r.errors, 0) / Math.max(1, moves + rs.reduce((s, r) => s + r.errors, 0)), opt: moves ? opt / moves : null, ms: median(ms) };
+  }).filter((x) => x.games);
+  const maxErr = Math.max(0.01, ...fam.map((x) => x.err));
+  const status = { connecting: '<span class="spinner"></span> connecting to the shared log…', connected: 'Connected: finished games are saved to this page’s shared database.', unavailable: 'Shared database unavailable in this view: games are kept for this visit only (use Copy CSV).' }[S.dbStatus];
+  $('#app').innerHTML = `
+    <h1>Experiment data</h1>
+    <p class="lede">Every game played against the AI in “winning side” or “choose side” mode is logged: board family, density, who moved first, each move's think time, and whether it kept the winning strategy. This is the raw material for the psychology question: which knotted structures do people find easy to read?</p>
+    <div class="alert" style="margin-bottom:14px">${status} ${S.dbError ? `<span class="muted">(${esc(S.dbError)})</span>` : ''}</div>
+    <div class="toolbar">
+      ${S.db ? `<button class="btn small" id="dload">${S.remote ? 'Refresh shared log' : 'Load shared log'}</button>` : ''}
+      <button class="btn small" id="dcsv" ${rows.length ? '' : 'disabled'}>Copy CSV (games)</button>
+      <button class="btn small" id="dcsvm" ${rows.length ? '' : 'disabled'}>Copy CSV (moves)</button>
+      <span class="muted" id="dmsg">${S.remote && S.remote.loading ? '<span class="spinner"></span> loading…' : S.remote ? `${remoteRows.length} saved game(s) visible to ${S.remote.scope === 'you' ? 'you (only the owner sees everyone’s)' : 'you, from all participants'}` : ''}</span>
+    </div>
+    ${rows.length ? `
+    <div class="hero" style="grid-template-columns:1fr 1fr">
+      <div class="card pad"><h2 style="font-size:1.1rem;margin-bottom:10px">Error rate by family</h2><div class="bars">
+        ${fam.map((x) => `<div class="barrow"><span>${esc(x.f)}</span><div class="bartrack"><div class="barfill" style="width:${(x.err / maxErr) * 100}%"></div></div><span>${pct(x.err)}</span></div>`).join('')}</div>
+        <p class="muted">Errors = moves that gave away a forced win ÷ all attempted moves by the human.</p></div>
+      <div class="card pad"><h2 style="font-size:1.1rem;margin-bottom:10px">Summary</h2><table><thead><tr><th>Family</th><th>Games</th><th>Human won</th><th>Optimal moves</th><th>Median think</th></tr></thead><tbody>
+        ${fam.map((x) => `<tr><td>${esc(x.f)}</td><td>${x.games}</td><td>${x.win == null ? '—' : pct(x.win)}</td><td>${x.opt == null ? '—' : pct(x.opt)}</td><td>${x.ms == null ? '—' : (x.ms / 1000).toFixed(1) + ' s'}</td></tr>`).join('')}</tbody></table></div>
+    </div>
+    <div class="card tablewrap"><table><thead><tr><th>When</th><th>Participant</th><th>Board</th><th>P1</th><th>Human</th><th>Mode</th><th>Winner</th><th>Errors</th><th>Hints</th><th>Median think</th><th>Saved</th></tr></thead><tbody>
+      ${rows.slice().sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).map((r) => `<tr><td>${esc((r.createdAt || '').replace('T', ' ').slice(0, 16))}</td><td>${esc(r.participant || '—')}</td><td>${esc(r.label)}</td><td>${NAME[r.firstPlayer]}</td><td>${NAME[r.humanRole]}</td><td>${r.mode}${r.strict ? ' · strict' : ''}</td><td><span class="pill ${r.winner === 'knotter' ? 'k' : r.winner === 'unknotter' ? 'u' : ''}">${NAME[r.winner] || r.winner}</span></td><td>${r.errors}</td><td>${r.hints}</td><td>${r.medianMoveMs == null ? '—' : (r.medianMoveMs / 1000).toFixed(1) + ' s'}</td><td class="muted">${esc(r._saved || 'saved')}</td></tr>`).join('')}
+    </tbody></table></div>` : `<div class="card empty">No games yet. Open a knot from the <a href="#catalog">catalog</a> and play it against the AI.</div>`}`;
+  const dl = $('#dload'); if (dl) dl.onclick = loadRemote;
+  const copy = async (text, btn) => { try { await navigator.clipboard.writeText(text); btn.textContent = 'Copied ✓'; } catch { btn.textContent = 'Copy blocked'; } };
+  $('#dcsv').onclick = (ev) => copy(toCSV(rows.map(({ events, initialBoard, finalBoard, _saved, ...r }) => r)), ev.target);
+  $('#dcsvm').onclick = (ev) => copy(toCSV(rows.flatMap((r) => (r.events || []).map((m) => ({ gameId: r.gameId, participant: r.participant, boardId: r.boardId, family: r.family, crossings: r.crossings, density: r.density, firstPlayer: r.firstPlayer, humanRole: r.humanRole, strict: r.strict, ...m })))), ev.target);
+}
+function toCSV(objs) {
+  if (!objs.length) return '';
+  const keys = [...new Set(objs.flatMap((o) => Object.keys(o)))];
+  const cell = (v) => { if (v == null) return ''; const s = typeof v === 'object' ? JSON.stringify(v) : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  return [keys.join(','), ...objs.map((o) => keys.map((k) => cell(o[k])).join(','))].join('\n');
+}
+
+// =============================================================================================
+// About
+function viewAbout() {
+  $('#app').innerHTML = `<div class="prose card pad">
+    <h1>About this prototype</h1>
+    <p class="lede">A working prototype of the KnotLink knotting–unknotting game, built around the questions from the planning notes.</p>
+    <h2>What it does</h2>
+    <ul>
+      <li><b>P1 / P2 and who wins.</b> Every shadow is solved by exhaustive minimax for both choices of first mover; the <a href="#atlas">atlas</a> shows where the first move decides the game.</li>
+      <li><b>Human gets the winning strategy.</b> In the default mode the human is assigned whichever side has a forced win and the AI defends the losing side. When it is lost, the AI plays the move that leaves the human the most chances to go wrong. Strict coaching rejects any move that throws away the win.</li>
+      <li><b>Psychology data.</b> Each human move is logged with think time and whether it kept the forced win, by family, crossing number and density, so easy and hard structures can be compared.</li>
+      <li><b>Picture to board.</b> The catalog is a gallery (or list) of knot pictures; clicking one opens its shadow as a game board. Each card shows the prior: the share of all resolutions that are knotted.</li>
+      <li><b>3D.</b> “View in 3D” lifts the current diagram into space: over-strands rise, under-strands dip, unresolved crossings stay flat and are marked.</li>
+    </ul>
+    <h2>Families</h2>
+    <p>Twist knots, (2,q) and (3,q) torus knots, 2-bridge knots from Conway notation, pretzel knots, “deceptive” unknot shadows (they look twisted but every resolution is trivial), dense mosaics (the repository's boards plus seeded random 5×5 to 7×7 mosaics), and <b>25×25 boards</b> with 24 to 37 crossings. The exact solver handles up to 12 open crossings on small boards and 8 on large ones; bigger games use the heuristic AI. Custom boards of any size can be pasted in, including 25×25 exports from the Mosaic Maker.</p>
+    <h2>Mathematics and limits</h2>
+    <ul>
+      <li><b>Scaling to 25×25.</b> Small diagrams use the Kauffman bracket state sum (2ⁿ states). Larger ones use a <i>row sweep</i> (a Temperley–Lieb transfer matrix): the mosaic is processed cell by cell, keeping only the planar pairing of strand ends on the frontier. The cost grows with the number of strands crossing a row, not with the number of crossings, so 25×25 boards with dozens of crossings classify in milliseconds.</li>
+      <li><b>Certification.</b> Jones ≠ 1 proves the diagram is knotted. For Jones = 1 the diagram is first simplified (Reidemeister I and II on its Gauss code); if it then has fewer than 25 crossings it is certified as the unknot. If not, it is reported as a research candidate rather than declared trivial.</li>
+      <li>Finished diagrams are classified with the Jones polynomial, computed from the Kauffman bracket. A non-trivial Jones polynomial proves the knot is non-trivial. Jones = 1 implies the unknot for diagrams with fewer than 25 crossings (verified computationally by Tuzun and Sikora), so the classification is exact for every board here.</li>
+      <li>Only single-component shadows (knots) are supported; links are rejected.</li>
+      <li>Tile conventions match the repository: 9 = horizontal strand over, 10 = vertical strand over, −1 (or 11) = unresolved.</li>
+      <li>Knot names are only given for reduced alternating pictures up to 7 crossings, where crossing number and determinant identify the knot uniquely. Elsewhere the determinant is shown.</li>
+    </ul>
+    <h2>Related games</h2>
+    <p><a href="https://izook.github.io/knotris/">Knotris</a> · <a href="https://crossknots.vercel.app/">CrossKnots</a> · <a href="https://en.wikipedia.org/wiki/Twist_knot">Twist knots</a> · <a href="https://en.wikipedia.org/wiki/2-bridge_knot">2-bridge knots</a></p>
+  </div>`;
+}
+
+// =============================================================================================
+// 3D view (three.js from cdnjs; loaded on first use)
+let threeLoading = null;
+function loadThree() {
+  if (window.THREE) return Promise.resolve(window.THREE);
+  if (!threeLoading) threeLoading = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+    s.onload = () => res(window.THREE); s.onerror = () => rej(new Error('Could not load three.js'));
+    document.head.appendChild(s);
+  });
+  return threeLoading;
+}
+
+function knotPoints3D(board) {
+  const d = buildDiagram(board);
+  if (!d.path) return null;
+  const pts = [], zs = [], flags = [];
+  const P = (r, c, px, py) => [c + px - d.C / 2, -(r + py - d.R / 2)];
+  for (const s of d.path) {
+    const [ax, ay] = MID[s.entry], [bx, by] = MID[s.exit];
+    if (s.crossing !== undefined) {
+      const tile = board[s.r][s.c];
+      const horiz = s.exit === 1 || s.exit === 3;
+      const z = tile === -1 ? 0 : ((tile === 9) === horiz ? 1 : -1);
+      for (let k = 0; k < 6; k++) { const u = k / 6; pts.push(P(s.r, s.c, ax + (bx - ax) * u, ay + (by - ay) * u)); zs.push(z); flags.push(tile === -1 ? 1 : 0); }
+    } else {
+      const straight = (s.entry + 2) % 4 === s.exit;
+      for (let k = 0; k < 6; k++) {
+        const u = k / 6;
+        const px = straight ? ax + (bx - ax) * u : (1 - u) * (1 - u) * ax + 2 * u * (1 - u) * 0.5 + u * u * bx;
+        const py = straight ? ay + (by - ay) * u : (1 - u) * (1 - u) * ay + 2 * u * (1 - u) * 0.5 + u * u * by;
+        pts.push(P(s.r, s.c, px, py)); zs.push(0); flags.push(0);
+      }
+    }
+  }
+  // smooth heights along the closed curve
+  const n = pts.length, rad = 7, out = new Array(n).fill(0);
+  for (let i = 0; i < n; i++) {
+    let s = 0, w = 0;
+    for (let k = -rad * 2; k <= rad * 2; k++) { const ww = Math.exp(-(k * k) / (2 * rad * rad)); s += zs[(i + k + n) % n] * ww; w += ww; }
+    out[i] = (s / w) * 1.1;
+  }
+  const unresolved = d.crossings.filter((x) => board[x.r][x.c] === -1).map((x) => P(x.r, x.c, 0.5, 0.5));
+  return { pts: pts.map((p, i) => [p[0], p[1], out[i]]), unresolved, size: Math.max(d.R, d.C) };
+}
+
+async function open3D(board) {
+  const root = $('#modal-root');
+  root.innerHTML = `<div class="modal" id="m3"><div class="card pad" style="gap:10px">
+    <div class="row" style="justify-content:space-between"><h2>3D view</h2><div class="row"><span class="muted">Drag to rotate · scroll to zoom</span><button class="btn small" id="m3x">Close</button></div></div>
+    <canvas id="c3"></canvas><div class="muted" id="m3msg">Color runs once around the knot so you can follow the strand. Gold spheres mark crossings not yet resolved.</div></div></div>`;
+  let alive = true, raf = 0;
+  const close = () => { alive = false; cancelAnimationFrame(raf); root.innerHTML = ''; };
+  $('#m3x').onclick = close; $('#m3').onclick = (e) => { if (e.target.id === 'm3') close(); };
+  const data = knotPoints3D(board);
+  if (!data) { $('#m3msg').textContent = 'Only single-component knot diagrams can be shown in 3D.'; return; }
+  let THREE;
+  try { THREE = await loadThree(); } catch (err) { THREE = null; }
+  if (!alive) return;
+  const canvas = $('#c3');
+  if (!THREE) { canvasTube(canvas, data, () => alive, (id) => { raf = id; }); return; }
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 500);
+  let dist = data.size * 1.9; camera.position.set(0, 0, dist);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  const dl = new THREE.DirectionalLight(0xffffff, 0.75); dl.position.set(4, 6, 10); scene.add(dl);
+  const group = new THREE.Group(); scene.add(group);
+  const curve = new THREE.CatmullRomCurve3(data.pts.map((p) => new THREE.Vector3(p[0], p[1], p[2])), true, 'centripetal');
+  const segs = Math.min(2400, data.pts.length * 4), radial = 12;
+  const geo = new THREE.TubeGeometry(curve, segs, 0.13, radial, true);
+  const colors = [], col = new THREE.Color();
+  for (let i = 0; i <= segs; i++) { col.setHSL(0.58 + 0.35 * (i / segs), 0.45, 0.42); for (let j = 0; j <= radial; j++) colors.push(col.r, col.g, col.b); }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  group.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.1 })));
+  for (const [x, y] of data.unresolved) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(0.24, 20, 16), new THREE.MeshStandardMaterial({ color: 0xbfcc94, emissive: 0x3f4a1b, roughness: 0.4 }));
+    s.position.set(x, y, 0); group.add(s);
+  }
+  group.rotation.x = -0.45;
+  let drag = null, auto = true;
+  canvas.onpointerdown = (e) => { drag = { x: e.clientX, y: e.clientY, rx: group.rotation.x, ry: group.rotation.y }; auto = false; canvas.setPointerCapture(e.pointerId); };
+  canvas.onpointermove = (e) => { if (!drag) return; group.rotation.y = drag.ry + (e.clientX - drag.x) * 0.01; group.rotation.x = drag.rx + (e.clientY - drag.y) * 0.01; };
+  canvas.onpointerup = () => { drag = null; };
+  canvas.onwheel = (e) => { e.preventDefault(); dist = Math.max(data.size * 0.6, Math.min(data.size * 5, dist * (1 + Math.sign(e.deltaY) * 0.08))); camera.position.z = dist; };
+  const resize = () => { const w = canvas.clientWidth, h = canvas.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
+  resize();
+  const tick = () => { if (!alive) return; if (canvas.clientWidth && Math.abs(canvas.width - canvas.clientWidth * renderer.getPixelRatio()) > 2) resize(); if (auto) group.rotation.y += 0.006; renderer.render(scene, camera); raf = requestAnimationFrame(tick); };
+  tick();
+}
+
+// Dependency-free fallback: painter's-algorithm tube on a 2D canvas
+function canvasTube(canvas, data, isAlive, setRaf) {
+  const ctx = canvas.getContext('2d');
+  const pts = data.pts, n = pts.length;
+  let rx = -0.45, ry = 0, auto = true, drag = null, zoom = 1;
+  canvas.onpointerdown = (e) => { drag = { x: e.clientX, y: e.clientY, rx, ry }; auto = false; canvas.setPointerCapture(e.pointerId); };
+  canvas.onpointermove = (e) => { if (!drag) return; ry = drag.ry + (e.clientX - drag.x) * 0.01; rx = drag.rx + (e.clientY - drag.y) * 0.01; };
+  canvas.onpointerup = () => { drag = null; };
+  canvas.onwheel = (e) => { e.preventDefault(); zoom = Math.max(0.4, Math.min(3, zoom * (1 - Math.sign(e.deltaY) * 0.08))); };
+  const frame = () => {
+    if (!isAlive()) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1), w = canvas.clientWidth, h = canvas.clientHeight;
+    if (canvas.width !== Math.round(w * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+    if (auto) ry += 0.006;
+    const cy = Math.cos(ry), sy = Math.sin(ry), cx = Math.cos(rx), sx = Math.sin(rx);
+    const scale = Math.min(w, h) / (data.size * 1.25) * zoom, camD = data.size * 2.2;
+    const proj = ([x, y, z]) => { const x1 = x * cy + z * sy, z1 = -x * sy + z * cy; const y2 = y * cx - z1 * sx, z2 = y * sx + z1 * cx; const p = camD / (camD - z2); return [w / 2 + x1 * scale * p, h / 2 - y2 * scale * p, z2, p]; };
+    const P = pts.map(proj);
+    const segs = [];
+    for (let i = 0; i < n; i++) { const a = P[i], b = P[(i + 1) % n]; segs.push({ a, b, z: (a[2] + b[2]) / 2, t: i / n }); }
+    segs.sort((u, v) => u.z - v.z);
+    ctx.lineCap = 'round';
+    for (const s of segs) {
+      const width = 0.26 * scale * (s.a[3] + s.b[3]) / 2, light = 34 + 12 * Math.max(-1, Math.min(1, s.z / 1.2));
+      ctx.lineCap = 'butt'; ctx.strokeStyle = 'rgba(13,24,33,.85)'; ctx.lineWidth = width + 2.2; ctx.beginPath(); ctx.moveTo(s.a[0], s.a[1]); ctx.lineTo(s.b[0], s.b[1]); ctx.stroke();
+      ctx.lineCap = 'round'; ctx.strokeStyle = `hsl(${Math.round(210 + 126 * s.t)},45%,${light}%)`; ctx.lineWidth = width; ctx.beginPath(); ctx.moveTo(s.a[0], s.a[1]); ctx.lineTo(s.b[0], s.b[1]); ctx.stroke();
+    }
+    for (const [x, y] of data.unresolved) { const q = proj([x, y, 0]); ctx.fillStyle = '#bfcc94'; ctx.strokeStyle = '#3f4a1b'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(q[0], q[1], 0.24 * scale * q[3], 0, 7); ctx.fill(); ctx.stroke(); }
+    setRaf(requestAnimationFrame(frame));
+  };
+  frame();
+}
+
+// =============================================================================================
+route();
+initDB();
+</script>
+</body>
+</html>
