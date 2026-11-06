@@ -149,7 +149,7 @@ const S = {
 };
 const byId = (id) => S.catalog.find((e) => e.id === id);
 const FAMILIES = ['All', ...new Set(S.catalog.map((e) => e.family))];
-const NAME = { knotter: 'Knotter', unknotter: 'Unknotter' };
+const NAME = { knotter: 'Knotter', unknotter: 'Unknotter', undetermined: 'Undetermined' };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const $ = (sel, root = document) => root.querySelector(sel);
 const pct = (x) => `${Math.round(x * 100)}%`;
@@ -263,7 +263,7 @@ function viewCatalog() {
   const badges = (a) => a && a.ok ? `
       <span class="pill ${a.winnerIfKnotterFirst === 'knotter' ? 'k' : 'u'}" title="Knotter moves first">K first → ${a.winnerIfKnotterFirst === 'knotter' ? 'K' : 'U'}</span>
       <span class="pill ${a.winnerIfUnknotterFirst === 'knotter' ? 'k' : 'u'}" title="Unknotter moves first">U first → ${a.winnerIfUnknotterFirst === 'knotter' ? 'K' : 'U'}</span>
-      ${a.firstMoverMatters ? '<span class="pill flip">order matters</span>' : ''}` : '';
+      ${a.firstMoverMatters ? '<span class="pill flip">order matters</span>' : ''}` : (a && a.unsolvable ? '<span class="pill" title="Too many open crossings for exact solving">too large to solve · heuristic AI</span>' : '');
   if (S.view === 'cards') {
     body.innerHTML = `<div class="grid-cards">${list.map((e) => {
       const a = analysisOf(e);
@@ -339,6 +339,7 @@ function renderBoard() {
 function isHuman(cur, role) { return cur.humans.includes(role); }
 
 function theoryTable(a) {
+  if (a && a.unsolvable) return `<div class="alert">${esc(a.errors[0])}<br><span class="muted">You can still play it (two humans, or against the heuristic AI, which searches exactly once 3 crossings remain). The result is classified by the Jones polynomial with the row-sweep algorithm, which handles boards up to 25×25 and beyond.</span></div>`;
   if (!a || !a.ok) return '';
   const cell = (w) => `<span class="pill ${w === 'knotter' ? 'k' : 'u'}">${NAME[w]}</span>`;
   return `<table class="theory"><thead><tr><th>Who moves first</th><th>Wins with perfect play</th></tr></thead><tbody>
@@ -356,17 +357,19 @@ function renderSide() {
     </div><div style="margin-top:12px">${theoryTable(a)}</div></div>`;
   if (!cur.started) {
     const st = S.setup;
+    const solvable = cur.game.solvable;
+    if (!solvable && st.mode === 'winning') st.mode = 'choose';
     const W = a.ok ? (st.first === 'knotter' ? a.winnerIfKnotterFirst : a.winnerIfUnknotterFirst) : null;
     side.innerHTML = info + `<div class="card pad" style="display:flex;flex-direction:column;gap:12px">
       <h2>New game</h2>
       <label class="f">Who moves first (P1)?<div class="seg" id="sfirst"><button data-v="knotter" aria-pressed="${st.first === 'knotter'}">Knotter</button><button data-v="unknotter" aria-pressed="${st.first === 'unknotter'}">Unknotter</button></div></label>
       <label class="f">Mode<select id="smode">
-        <option value="winning" ${st.mode === 'winning' ? 'selected' : ''}>Human takes the winning side vs AI</option>
-        <option value="choose" ${st.mode === 'choose' ? 'selected' : ''}>Choose my side vs AI</option>
+        ${solvable ? `<option value="winning" ${st.mode === 'winning' ? 'selected' : ''}>Human takes the winning side vs AI</option>` : ''}
+        <option value="choose" ${st.mode === 'choose' ? 'selected' : ''}>Choose my side vs ${solvable ? 'AI' : 'heuristic AI'}</option>
         <option value="hotseat" ${st.mode === 'hotseat' ? 'selected' : ''}>Two humans (hot seat)</option>
         <option value="watch" ${st.mode === 'watch' ? 'selected' : ''}>Watch AI vs AI</option></select></label>
       ${st.mode === 'choose' ? `<label class="f">My side<div class="seg" id="srole"><button data-v="knotter" aria-pressed="${st.role === 'knotter'}">Knotter</button><button data-v="unknotter" aria-pressed="${st.role === 'unknotter'}">Unknotter</button></div></label>` : ''}
-      ${st.mode === 'winning' || st.mode === 'choose' ? `<label class="f">Coaching<div class="seg" id="sstrict"><button data-v="1" aria-pressed="${st.strict}">Strict: must play winning moves</button><button data-v="0" aria-pressed="${!st.strict}">Free</button></div></label>
+      ${solvable && (st.mode === 'winning' || st.mode === 'choose') ? `<label class="f">Coaching<div class="seg" id="sstrict"><button data-v="1" aria-pressed="${st.strict}">Strict: must play winning moves</button><button data-v="0" aria-pressed="${!st.strict}">Free</button></div></label>
       <div class="muted">${st.strict ? 'Strict: a move that throws away the win is rejected and logged as an error; try again.' : 'Free: mistakes stand, and the AI will punish them.'}</div>` : ''}
       ${st.mode === 'winning' && W ? `<div class="alert good">With ${NAME[st.first]} first, the <b>${NAME[W]}</b> has the winning strategy, so <b>you play ${NAME[W]}</b> and the AI defends the losing side.</div>` : ''}
       <label class="f">Participant label (optional, for the experiment log)<input type="text" id="slabel" value="${esc(S.label)}" placeholder="e.g. P07"></label>
@@ -402,8 +405,11 @@ function renderSide() {
   let status = '';
   if (cur.over) {
     const f = cur.final;
-    const humanWon = cur.humans.length === 1 ? cur.winner === cur.humans[0] : null;
-    status = `<div class="alert ${humanWon === false ? 'bad' : 'good'}"><b>${NAME[cur.winner]} wins.</b> The diagram is ${f.is_unknot ? 'the <b>unknot</b>' : 'a <b>knot</b>'}.<br><span class="muted">Jones polynomial: ${esc(f.jones_polynomial)}${f.determinant != null ? ` · det ${f.determinant}` : ''}</span>${cur.mode !== 'hotseat' && cur.mode !== 'watch' ? `<br>${cur.errors} rejected/losing move${cur.errors === 1 ? '' : 's'} · ${cur.hints} hint${cur.hints === 1 ? '' : 's'}` : ''}</div>`;
+    const humanWon = cur.humans.length === 1 && cur.winner !== 'undetermined' ? cur.winner === cur.humans[0] : null;
+    const how = f.is_unknot === false ? 'Certified knotted: the Jones polynomial is not 1.'
+      : f.is_unknot === true ? (f.reduced_crossings === 0 ? 'Certified unknot: Reidemeister moves remove every crossing.' : `Certified unknot: Jones = 1 and the diagram simplifies to ${f.reduced_crossings} crossings (< 25, where Jones detects the unknot).`)
+      : f.research_candidate ? `<b>Research candidate:</b> Jones = 1, but the diagram still has ${f.reduced_crossings} crossings after simplification (≥ 25). It is the unknot unless it is a counterexample to the Jones unknot conjecture. Save the board!` : esc(f.reason || '');
+    status = `<div class="alert ${humanWon === false ? 'bad' : 'good'}"><b>${cur.winner === 'undetermined' ? 'Winner undetermined.' : `${NAME[cur.winner]} wins.`}</b> ${f.is_unknot === null ? '' : `The diagram is ${f.is_unknot ? 'the <b>unknot</b>' : 'a <b>knot</b>'}.`}<br><span class="muted">${how}<br>Jones polynomial: ${esc(f.jones_polynomial || '—')}${f.determinant != null ? ` · det ${f.determinant}` : ''} · ${f.num_crossings} crossings${f.method ? ` · ${f.method === 'row_sweep' ? 'row-sweep algorithm' : 'state sum'}` : ''}</span>${cur.mode !== 'hotseat' && cur.mode !== 'watch' ? `<br>${cur.errors} rejected/losing move${cur.errors === 1 ? '' : 's'} · ${cur.hints} hint${cur.hints === 1 ? '' : 's'}` : ''}</div>`;
   } else {
     status = `<div class="turn"><span class="dot ${mover === 'knotter' ? 'k' : 'u'}"></span>${NAME[mover]} to move ${humanTurn ? '<span class="pill">your turn</span>' : '<span class="spinner"></span>'}</div>
       ${cur.flash ? `<div class="alert ${cur.flash.kind}">${cur.flash.text}</div>` : ''}
@@ -413,8 +419,8 @@ function renderSide() {
       <div class="row" style="justify-content:space-between"><h2>Game</h2><span class="muted">${youAre} · P1 = ${NAME[cur.first]}</span></div>
       ${status}
       <div class="row">
-        ${!cur.over && humanTurn && cur.mode !== 'hotseat' ? `<button class="btn small" id="bhint">${cur.showHints ? 'Hide hint' : 'Hint'}</button>` : ''}
-        ${!cur.over && cur.mode === 'hotseat' ? `<button class="btn small" id="bhint">${cur.showHints ? 'Hide hints' : 'Show winning moves'}</button>` : ''}
+        ${!cur.over && humanTurn && cur.mode !== 'hotseat' && cur.game.solvable ? `<button class="btn small" id="bhint">${cur.showHints ? 'Hide hint' : 'Hint'}</button>` : ''}
+        ${!cur.over && cur.mode === 'hotseat' && cur.game.solvable ? `<button class="btn small" id="bhint">${cur.showHints ? 'Hide hints' : 'Show winning moves'}</button>` : ''}
         <button class="btn small" id="brestart">${cur.over ? 'Play again' : 'Restart'}</button>
         <button class="btn small" id="bnew">New setup</button>
       </div>
@@ -428,14 +434,15 @@ function renderSide() {
 function startGame(W) {
   const cur = S.cur, st = S.setup;
   stopAI();
-  const theoryW = theoreticalWinner(cur.game, st.first);
+  const theoryW = cur.game.solvable ? theoreticalWinner(cur.game, st.first) : null;
   let humans;
-  if (st.mode === 'winning') humans = [theoryW];
+  if (st.mode === 'winning' && theoryW) humans = [theoryW];
+  else if (st.mode === 'winning') humans = [st.role];
   else if (st.mode === 'choose') humans = [st.role];
   else if (st.mode === 'hotseat') humans = ['knotter', 'unknotter'];
   else humans = [];
   Object.assign(cur, {
-    started: true, over: false, first: st.first, mode: st.mode, strict: st.strict && (st.mode === 'winning' || st.mode === 'choose'),
+    started: true, over: false, first: st.first, mode: st.mode, strict: cur.game.solvable && st.strict && (st.mode === 'winning' || st.mode === 'choose'),
     humans, theory: theoryW, assign: new Array(cur.game.n).fill(0), log: [], events: [], errors: 0, hints: 0,
     showHints: false, pending: null, last: null, flash: null, t0: Date.now(), turnStart: Date.now(),
     gameId: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
@@ -445,7 +452,7 @@ function startGame(W) {
 
 function refreshHints() {
   const cur = S.cur;
-  if (cur.over) { cur.hintSet = new Set(); return; }
+  if (cur.over || !cur.game.solvable) { cur.hintSet = new Set(); cur.eval = null; return; }
   const ev = evaluateMoves(cur.game, cur.assign, cur.first);
   cur.eval = ev;
   cur.hintSet = new Set(ev.moves.filter((m) => m.winning).map((m) => m.j));
@@ -488,11 +495,11 @@ function humanMove(j, tile) {
   const cur = S.cur;
   const mover = moverOf(cur.assign, cur.first);
   const ev = cur.eval;
-  const m = ev.moves.find((x) => x.j === j && x.tile === tile);
-  const nWin = ev.moves.filter((x) => x.winning).length;
+  const m = ev ? ev.moves.find((x) => x.j === j && x.tile === tile) : { crossing: cur.game.playable[j], winning: null };
+  const nWin = ev ? ev.moves.filter((x) => x.winning).length : 0;
   const event = {
     moveNo: cur.assign.filter((x) => x).length + 1, role: mover, j, crossing: m.crossing, tile,
-    winning: m.winning, nWinning: nWin, nMoves: ev.moves.length, ms: Date.now() - cur.turnStart,
+    winning: m.winning, nWinning: ev ? nWin : null, nMoves: ev ? ev.moves.length : null, ms: Date.now() - cur.turnStart,
     hint: !!cur.hintUsedThisMove, rejected: false,
   };
   const trackable = cur.mode === 'winning' || cur.mode === 'choose';
@@ -529,9 +536,9 @@ function maybeAI() {
   cur.aiTimer = setTimeout(() => {
     cur.aiTimer = null;
     if (S.cur !== cur || cur.over) return;
-    const m = aiMove(cur.game, cur.assign, cur.first);
+    const m = cur.game.solvable ? aiMove(cur.game, cur.assign, cur.first) : heuristicMove(cur.game, cur.assign, cur.first);
     if (cur.mode !== 'watch') cur.flash = null;
-    applyMove(mover, m.j, m.tile, m.why === 'trap' ? ' <span class="muted">(trap)</span>' : '');
+    applyMove(mover, m.j, m.tile, m.why === 'trap' ? ' <span class="muted">(trap)</span>' : m.why === 'exact' ? ' <span class="muted">(exact endgame)</span>' : '');
   }, cur.mode === 'watch' ? 900 : 650);
 }
 
@@ -540,7 +547,7 @@ function finish() {
   cur.over = true; cur.flash = null; cur.pending = null;
   const final = classifyBoard(currentBoard(cur));
   cur.final = final;
-  cur.winner = final.is_unknot ? 'unknotter' : 'knotter';
+  cur.winner = final.is_unknot === false ? 'knotter' : final.is_unknot === true ? 'unknotter' : 'undetermined';
   refreshHints(); renderBoard(); renderSide();
   if (cur.mode === 'winning' || cur.mode === 'choose') recordGame(cur);
 }
@@ -555,9 +562,9 @@ function recordGame(cur) {
     boardId: e.id, family: e.family, label: e.label, crossings: cur.game.diag.N, playable: cur.game.n,
     rows: e.rows, cols: e.cols, density: +(cur.game.diag.N / (e.rows * e.cols)).toFixed(4),
     firstPlayer: cur.first, humanRole: cur.humans[0], mode: cur.mode, strict: cur.strict,
-    theoreticalWinner: cur.theory, winner: cur.winner, humanWon: cur.winner === cur.humans[0],
+    theoreticalWinner: cur.theory, winner: cur.winner, humanWon: cur.winner === 'undetermined' ? null : cur.winner === cur.humans[0], solvable: cur.game.solvable, certified: cur.final.certified ?? null,
     errors: cur.errors, hints: cur.hints, humanMoves: accepted.length,
-    optimalMoves: accepted.filter((x) => x.winning || x.nWinning === 0).length,
+    optimalMoves: cur.game.solvable ? accepted.filter((x) => x.winning || x.nWinning === 0).length : null,
     medianMoveMs: median(accepted.map((x) => x.ms)), durationMs: Date.now() - cur.t0,
     finalBoard: currentBoard(cur), jones: cur.final.jones_polynomial, events: cur.events,
     initialBoard: e.board,
@@ -643,6 +650,7 @@ function viewAtlas() {
         <td>${a.firstMoverMatters ? '<span class="pill flip">yes</span>' : 'no'}</td><td>${pct(a.knottedFraction)}</td>
         <td>${share(a.openShare_knotter)} / ${share(a.openShare_unknotter)}</td></tr>`).join('')}
     </tbody></table></div>
+    ${S.catalog.filter((e) => analysisOf(e).unsolvable).length ? `<p class="muted">Not in the table: ${S.catalog.filter((e) => analysisOf(e).unsolvable).map((e) => esc(e.label)).join(', ')}. These have too many open crossings for exact solving. Their “central 8 open” versions are included.</p>` : ''}
     <p class="muted">Density = crossings ÷ mosaic cells, a first proxy for how “densely packed” a picture is. Winning openings = among all ${'2 × (open crossings)'} first moves of the side that is to move, the share that keep a forced win (shown only when the mover is the theoretical winner).</p>`;
   $('#app').querySelectorAll('tr[data-id]').forEach((tr) => tr.onclick = () => openBoard(tr.dataset.id));
 }
@@ -680,7 +688,7 @@ function viewData() {
         ${fam.map((x) => `<tr><td>${esc(x.f)}</td><td>${x.games}</td><td>${x.win == null ? '—' : pct(x.win)}</td><td>${x.opt == null ? '—' : pct(x.opt)}</td><td>${x.ms == null ? '—' : (x.ms / 1000).toFixed(1) + ' s'}</td></tr>`).join('')}</tbody></table></div>
     </div>
     <div class="card tablewrap"><table><thead><tr><th>When</th><th>Participant</th><th>Board</th><th>P1</th><th>Human</th><th>Mode</th><th>Winner</th><th>Errors</th><th>Hints</th><th>Median think</th><th>Saved</th></tr></thead><tbody>
-      ${rows.slice().sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).map((r) => `<tr><td>${esc((r.createdAt || '').replace('T', ' ').slice(0, 16))}</td><td>${esc(r.participant || '—')}</td><td>${esc(r.label)}</td><td>${NAME[r.firstPlayer]}</td><td>${NAME[r.humanRole]}</td><td>${r.mode}${r.strict ? ' · strict' : ''}</td><td><span class="pill ${r.winner === 'knotter' ? 'k' : 'u'}">${NAME[r.winner]}</span></td><td>${r.errors}</td><td>${r.hints}</td><td>${r.medianMoveMs == null ? '—' : (r.medianMoveMs / 1000).toFixed(1) + ' s'}</td><td class="muted">${esc(r._saved || 'saved')}</td></tr>`).join('')}
+      ${rows.slice().sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).map((r) => `<tr><td>${esc((r.createdAt || '').replace('T', ' ').slice(0, 16))}</td><td>${esc(r.participant || '—')}</td><td>${esc(r.label)}</td><td>${NAME[r.firstPlayer]}</td><td>${NAME[r.humanRole]}</td><td>${r.mode}${r.strict ? ' · strict' : ''}</td><td><span class="pill ${r.winner === 'knotter' ? 'k' : r.winner === 'unknotter' ? 'u' : ''}">${NAME[r.winner] || r.winner}</span></td><td>${r.errors}</td><td>${r.hints}</td><td>${r.medianMoveMs == null ? '—' : (r.medianMoveMs / 1000).toFixed(1) + ' s'}</td><td class="muted">${esc(r._saved || 'saved')}</td></tr>`).join('')}
     </tbody></table></div>` : `<div class="card empty">No games yet. Open a knot from the <a href="#catalog">catalog</a> and play it against the AI.</div>`}`;
   const dl = $('#dload'); if (dl) dl.onclick = loadRemote;
   const copy = async (text, btn) => { try { await navigator.clipboard.writeText(text); btn.textContent = 'Copied ✓'; } catch { btn.textContent = 'Copy blocked'; } };
@@ -709,10 +717,12 @@ function viewAbout() {
       <li><b>3D.</b> “View in 3D” lifts the current diagram into space: over-strands rise, under-strands dip, unresolved crossings stay flat and are marked.</li>
     </ul>
     <h2>Families</h2>
-    <p>Twist knots, (2,q) and (3,q) torus knots, 2-bridge knots from Conway notation, pretzel knots, “deceptive” unknot shadows (they look twisted but every resolution is trivial), and dense mosaics, including the boards from the repository and seeded random 5×5 to 7×7 mosaics. All families stay at 12 or fewer playable crossings, and the solver is exact up to that size.</p>
+    <p>Twist knots, (2,q) and (3,q) torus knots, 2-bridge knots from Conway notation, pretzel knots, “deceptive” unknot shadows (they look twisted but every resolution is trivial), dense mosaics (the repository's boards plus seeded random 5×5 to 7×7 mosaics), and <b>25×25 boards</b> with 24 to 37 crossings. The exact solver handles up to 12 open crossings on small boards and 8 on large ones; bigger games use the heuristic AI. Custom boards of any size can be pasted in, including 25×25 exports from the Mosaic Maker.</p>
     <h2>Mathematics and limits</h2>
     <ul>
-      <li>Finished diagrams are classified with the Jones polynomial, computed from the Kauffman bracket state sum. A non-trivial Jones polynomial proves the knot is non-trivial. Jones = 1 implies the unknot for diagrams with fewer than 25 crossings (verified computationally by Tuzun and Sikora), so the classification is exact for every board here.</li>
+      <li><b>Scaling to 25×25.</b> Small diagrams use the Kauffman bracket state sum (2ⁿ states). Larger ones use a <i>row sweep</i> (a Temperley–Lieb transfer matrix): the mosaic is processed cell by cell, keeping only the planar pairing of strand ends on the frontier. The cost grows with the number of strands crossing a row, not with the number of crossings, so 25×25 boards with dozens of crossings classify in milliseconds.</li>
+      <li><b>Certification.</b> Jones ≠ 1 proves the diagram is knotted. For Jones = 1 the diagram is first simplified (Reidemeister I and II on its Gauss code); if it then has fewer than 25 crossings it is certified as the unknot. If not, it is reported as a research candidate rather than declared trivial.</li>
+      <li>Finished diagrams are classified with the Jones polynomial, computed from the Kauffman bracket. A non-trivial Jones polynomial proves the knot is non-trivial. Jones = 1 implies the unknot for diagrams with fewer than 25 crossings (verified computationally by Tuzun and Sikora), so the classification is exact for every board here.</li>
       <li>Only single-component shadows (knots) are supported; links are rejected.</li>
       <li>Tile conventions match the repository: 9 = horizontal strand over, 10 = vertical strand over, −1 (or 11) = unresolved.</li>
       <li>Knot names are only given for reduced alternating pictures up to 7 crossings, where crossing number and determinant identify the knot uniquely. Elsewhere the determinant is shown.</li>

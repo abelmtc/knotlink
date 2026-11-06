@@ -66,7 +66,12 @@ def run_classifier(board):
             return _builtin_classify(board)
         raise ClassifierUnavailable({"error": "Classifier service timeout"}, 504)
     if response.status_code == 200:
-        return response.json()
+        result = response.json()
+        # The Sage service gives up above 22 crossings (is_unknot = null); the built-in row-sweep
+        # classifier handles large boards such as 25x25 mosaics.
+        if CLASSIFIER_MODE == 'auto' and result.get('is_unknot') is None:
+            return _builtin_classify(board)
+        return result
     if CLASSIFIER_MODE == 'auto':
         return _builtin_classify(board)
     try:

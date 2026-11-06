@@ -26,8 +26,11 @@ const PAIRS = {
   0: [], 1: [[3, 2]], 2: [[1, 2]], 3: [[0, 1]], 4: [[3, 0]], 5: [[3, 1]], 6: [[0, 2]],
   7: [[2, 3], [0, 1]], 8: [[2, 1], [3, 0]],
 };
-export const MAX_SOLVE = 12;      // playable crossings the solver will handle
-export const MAX_CLASSIFY = 20;   // crossings the classifier will handle
+export const MAX_SOLVE = 12;      // playable crossings the solver will handle (small boards)
+export const MAX_SOLVE_LARGE = 8; // playable crossings the solver will handle on boards > 14 crossings
+export const STATE_SUM_MAX = 14;  // above this many crossings use the row-sweep algorithm
+export const MAX_CLASSIFY = 400;  // crossings the classifier will attempt (row sweep)
+export const JONES_VERIFIED_BELOW = 25; // Jones = 1 => unknot is proven for < 25 crossings
 
 export const isCrossingTile = (t) => t === -1 || t === 9 || t === 10;
 function goes(t, d) {
@@ -326,24 +329,192 @@ export function classifyBoard(board) {
   if (diag.components !== 1) return { is_unknot: null, reason: 'link_not_supported', components: diag.components, num_crossings: diag.N };
   if (diag.N === 0) return { is_unknot: true, reason: 'no_crossings', num_crossings: 0, jones_polynomial: '1' };
   if (diag.N > MAX_CLASSIFY) return { is_unknot: null, reason: 'too_many_crossings', num_crossings: diag.N };
-  const f = normalizedBracket(diag, resolutionMask(diag, diag.crossings.map((x) => x.tile)));
+  let f, method;
+  try {
+    if (diag.N <= STATE_SUM_MAX) { f = normalizedBracket(diag, resolutionMask(diag, diag.crossings.map((x) => x.tile))); method = 'state_sum'; }
+    else { f = sweepNormalizedBracket(b, diag); method = 'row_sweep'; if (!f.exact) return { is_unknot: null, reason: 'precision_limit', num_crossings: diag.N }; }
+  } catch (err) { return { is_unknot: null, reason: 'too_complex', error: String(err.message || err), num_crossings: diag.N }; }
   const terms = jonesTerms(f);
-  return {
-    is_unknot: isOne(f), reason: 'jones_polynomial', num_crossings: diag.N,
-    jones_polynomial: formatJones(terms), jones_terms: terms, determinant: determinant(terms),
-  };
+  const one = isOne(f);
+  const reduced = reducedCrossingCount(diag, (i) => diag.crossings[i].tile);
+  const base = { num_crossings: diag.N, reduced_crossings: reduced, method, jones_polynomial: formatJones(terms), jones_terms: terms, determinant: determinant(terms) };
+  if (!one) return { ...base, is_unknot: false, reason: 'jones_polynomial', certified: true, certified_by: 'jones_not_one' };
+  if (reduced < JONES_VERIFIED_BELOW || diag.N < JONES_VERIFIED_BELOW) return { ...base, is_unknot: true, reason: 'jones_polynomial', certified: true, certified_by: reduced === 0 ? 'reidemeister' : 'jones_below_25' };
+  // Jones = 1 but the diagram is still >= 25 crossings after simplification: unknot unless this
+  // is a counterexample to the Jones unknot conjecture.
+  return { ...base, is_unknot: null, reason: 'jones_trivial_unverified', certified: false, research_candidate: true };
 }
 
 // Knot data for the alternating resolution of a shadow (used to label catalog entries)
 export function alternatingInvariants(diag) {
   if (!diag.isKnotShadow || diag.N === 0 || diag.N > MAX_CLASSIFY) return null;
-  const f = normalizedBracket(diag, resolutionMask(diag, Array.from(diag.altTile)));
+  let f;
+  if (diag.N <= STATE_SUM_MAX) f = normalizedBracket(diag, resolutionMask(diag, Array.from(diag.altTile)));
+  else {
+    const b = diag.board.map((r) => r.slice());
+    diag.crossings.forEach((x, i) => { b[x.r][x.c] = diag.altTile[i]; });
+    try { f = sweepNormalizedBracket(b, diag); } catch { return null; }
+  }
   const terms = jonesTerms(f);
   const exps = terms.map((t) => t[0]);
   return {
     jones: formatJones(terms), terms, determinant: determinant(terms),
     span: terms.length ? Math.max(...exps) - Math.min(...exps) : 0, unknot: isOne(f),
   };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Scalable Kauffman bracket: sweep the mosaic cell by cell (a Temperley–Lieb transfer matrix).
+// The state is the planar pairing of strand ends on the frontier between processed and
+// unprocessed cells, so the cost grows with the number of strands crossing the frontier, not
+// with the number of crossings. This is what lets 25×25 boards with dozens of crossings work.
+
+const TRANSPOSE_TILE = { 0: 0, 1: 3, 2: 2, 3: 1, 4: 4, 5: 6, 6: 5, 7: 7, 8: 8, 9: 10, 10: 9, [-1]: -1 };
+function transposeBoard(b) {
+  const R = b.length, C = b[0].length;
+  return Array.from({ length: C }, (_, c) => Array.from({ length: R }, (_, r) => TRANSPOSE_TILE[b[r][c]]));
+}
+function sweepWidth(b) {
+  // largest number of strands crossing a horizontal cut (row-major frontier size)
+  let w = 0;
+  for (let r = 0; r < b.length; r++) { let k = 0; for (const t of b[r]) if (goes(t, 2)) k++; w = Math.max(w, k); }
+  return w;
+}
+const SMOOTH7 = [[2, 3], [0, 1]], SMOOTH8 = [[2, 1], [3, 0]];
+
+function sweepBracketRaw(board) {
+  // returns {lo, c} for <D> (normalized so that a single loop is 1) and the peak state count
+  const R = board.length, C = board[0].length;
+  let states = new Map();
+  const init = new Int16Array(C + 1).fill(-1);
+  states.set(init.join(','), { p: init, poly: { lo: 0, c: [1] } });
+  let peak = 1, maxAbs = 1;
+  const uf = new Int32Array(C + 3);
+  const find = (x) => { while (uf[x] !== x) { uf[x] = uf[uf[x]]; x = uf[x]; } return x; };
+  for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+    const t = board[r][c];
+    if (t === 0 || t === 5 || t === 6) continue; // these never change the frontier
+    const options = t === 9 ? [[SMOOTH8, 1], [SMOOTH7, -1]] : t === 10 ? [[SMOOTH7, 1], [SMOOTH8, -1]] : [[PAIRS[t], 0]];
+    const next = new Map();
+    const ext = (side) => (side === 0 ? c : side === 3 ? C : side === 2 ? C + 1 : C + 2);
+    for (const { p, poly } of states.values()) {
+      for (const [pairs, w] of options) {
+        for (let i = 0; i < C + 3; i++) uf[i] = i;
+        for (let i = 0; i <= C; i++) if (p[i] > i) uf[find(i)] = find(p[i]);
+        let usesD = false, usesR = false;
+        for (const [a, b] of pairs) {
+          if (a === 2 || b === 2) usesD = true;
+          if (a === 1 || b === 1) usesR = true;
+          const x = find(ext(a)), y = find(ext(b)); if (x !== y) uf[x] = y;
+        }
+        const np = new Int16Array(C + 1).fill(-1);
+        const firstEnd = new Map();
+        const slotOf = (n) => (n === C + 1 ? c : n === C + 2 ? C : n);
+        const ends = [];
+        for (let i = 0; i <= C; i++) if (i !== c && i !== C && p[i] >= 0) ends.push(i);
+        if (usesD) ends.push(C + 1);
+        if (usesR) ends.push(C + 2);
+        const hasEnd = new Set();
+        for (const e of ends) {
+          const root = find(e); hasEnd.add(root);
+          if (firstEnd.has(root)) { const o = firstEnd.get(root); np[slotOf(o)] = slotOf(e); np[slotOf(e)] = slotOf(o); }
+          else firstEnd.set(root, e);
+        }
+        let loops = 0;
+        const seen = new Set();
+        for (const x of [c, C]) {
+          if (p[x] < 0) continue;
+          const root = find(x);
+          if (!hasEnd.has(root) && !seen.has(root)) { seen.add(root); loops++; }
+        }
+        let q = { lo: poly.lo + w, c: poly.c };
+        for (let k = 0; k < loops; k++) q = polyMulD(q);
+        const key = np.join(',');
+        const cur = next.get(key);
+        if (!cur) next.set(key, { p: np, poly: { lo: q.lo, c: q.c.slice() } });
+        else maxAbs = Math.max(maxAbs, polyAddInto(cur, q));
+      }
+    }
+    states = next;
+    if (states.size > peak) peak = states.size;
+    if (peak > 400000) throw new Error('Diagram too wide for the row sweep');
+  }
+  const fin = [...states.values()];
+  if (fin.length !== 1 || fin[0].p.some((x) => x !== -1)) throw new Error('Sweep did not close up (invalid board?)');
+  return { poly: polyDivD(fin[0].poly), peak, exact: maxAbs < 2 ** 52 };
+}
+function polyMulD(p) {
+  const n = p.c.length, c = new Array(n + 4).fill(0);
+  for (let i = 0; i < n; i++) { const v = p.c[i]; if (v) { c[i] -= v; c[i + 4] -= v; } }
+  return { lo: p.lo - 2, c };
+}
+function polyAddInto(entry, q) {
+  const p = entry.poly;
+  const lo = Math.min(p.lo, q.lo), hi = Math.max(p.lo + p.c.length, q.lo + q.c.length);
+  if (lo !== p.lo || hi !== p.lo + p.c.length) {
+    const c = new Array(hi - lo).fill(0);
+    for (let i = 0; i < p.c.length; i++) c[i + p.lo - lo] = p.c[i];
+    entry.poly = { lo, c };
+  }
+  const t = entry.poly; let m = 0;
+  for (let i = 0; i < q.c.length; i++) { const k = i + q.lo - t.lo; t.c[k] += q.c[i]; const a = Math.abs(t.c[k]); if (a > m) m = a; }
+  return m;
+}
+function polyDivD(P) {
+  // P = d * Q with d = -A^2 - A^-2 = -A^-2 (A^4 + 1)  =>  Q = -A^2 P / (A^4 + 1)
+  const r = P.c.map((x) => -x), lo = P.lo + 2, n = r.length;
+  if (n < 5) throw new Error('bracket not divisible by d');
+  const q = new Array(n - 4).fill(0);
+  for (let i = n - 1; i >= 4; i--) { const v = r[i]; if (v) { q[i - 4] = v; r[i] -= v; r[i - 4] -= v; } }
+  if (r.some((x) => Math.abs(x) > 1e-9)) throw new Error('bracket not divisible by d');
+  return { lo, c: q };
+}
+function toDense({ lo, c }) {
+  const off = Math.max(Math.abs(lo), Math.abs(lo + c.length)) + 2;
+  const f = polyNew(off);
+  c.forEach((v, i) => { if (v) f.c[lo + i + off] = v; });
+  return f;
+}
+
+// Normalized bracket f(A) for any resolved board, choosing the cheaper sweep direction.
+export function sweepNormalizedBracket(board, diag) {
+  const T = transposeBoard(board);
+  const useT = sweepWidth(T) < sweepWidth(board);
+  const res = sweepBracketRaw(useT ? T : board);
+  let { lo, c } = res.poly;
+  if (useT) { c = c.slice().reverse(); lo = -(lo + c.length - 1); } // transpose = mirror image: A -> 1/A
+  let w = 0;
+  diag.crossings.forEach((x, i) => { w += board[x.r][x.c] === 10 ? -diag.sign9[i] : diag.sign9[i]; });
+  const sgn = (w & 1) ? -1 : 1;
+  const f = toDense({ lo: lo - 3 * w, c: c.map((v) => v * sgn) });
+  f.exact = res.exact; f.peak = res.peak;
+  return f;
+}
+
+// Reidemeister I / II simplification on the Gauss code of a resolved knot diagram.
+// Returns the crossing count after removing kinks (RI) and removable bigons (RII): if that is
+// < 25, a Jones polynomial of 1 certifies the unknot (Tuzun–Sikora verification).
+export function reducedCrossingCount(diag, tileOf /* (crossingIndex) => 9 | 10 */) {
+  let seq = diag.passages.map((ps) => ({ i: ps.i, o: (ps.dir === 1 || ps.dir === 3) ? tileOf(ps.i) === 9 : tileOf(ps.i) === 10 }));
+  let changed = true;
+  while (changed && seq.length) {
+    changed = false;
+    const n = seq.length;
+    for (let k = 0; k < n && !changed; k++) {
+      const a = seq[k], b = seq[(k + 1) % n];
+      if (a.i === b.i) { seq = seq.filter((x) => x.i !== a.i); changed = true; }
+    }
+    if (changed) continue;
+    for (let k = 0; k < n && !changed; k++) {
+      const a = seq[k], b = seq[(k + 1) % n];
+      if (a.i === b.i || a.o !== b.o) continue;
+      let ka = -1, kb = -1;
+      seq.forEach((x, idx) => { if (x.i === a.i && idx !== k) ka = idx; if (x.i === b.i && idx !== (k + 1) % n) kb = idx; });
+      const d = Math.abs(ka - kb);
+      if (d === 1 || d === n - 1) { seq = seq.filter((x) => x.i !== a.i && x.i !== b.i); changed = true; }
+    }
+  }
+  return seq.length / 2;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -358,9 +529,10 @@ export function createGame(board) {
   const playable = [];
   let fixedMask = 0;
   diag.crossings.forEach((x, i) => { if (x.tile === -1) playable.push(i); else if (x.tile === 10) fixedMask |= 1 << i; });
-  if (playable.length > MAX_SOLVE) return { ok: false, errors: [`${playable.length} playable crossings; the solver supports up to ${MAX_SOLVE}.`], diag };
-  if (diag.N > MAX_SOLVE + 2) return { ok: false, errors: [`${diag.N} crossings; the solver supports up to ${MAX_SOLVE + 2}.`], diag };
-  return { ok: true, board: b, diag, playable, n: playable.length, fixedMask, _memo: {} };
+  // exact solving: up to 12 open crossings on small boards (state sum), up to 8 on large ones (row sweep)
+  const solvable = diag.N <= STATE_SUM_MAX ? playable.length <= MAX_SOLVE : playable.length <= MAX_SOLVE_LARGE;
+  const why = solvable ? '' : `${playable.length} open crossings on a ${diag.N}-crossing board: too many to solve exactly (limit ${diag.N <= STATE_SUM_MAX ? MAX_SOLVE : MAX_SOLVE_LARGE}).`;
+  return { ok: true, solvable, why, board: b, diag, playable, n: playable.length, fixedMask, _memo: {} };
 }
 
 function leafTable(game) {
@@ -368,10 +540,18 @@ function leafTable(game) {
   const { n, playable, fixedMask, diag } = game;
   const total = 1 << n;
   const leaves = new Uint8Array(total); // 1 = knotted (Knotter wins)
-  for (let m = 0; m < total; m++) {
-    let r = fixedMask;
-    for (let j = 0; j < n; j++) if ((m >> j) & 1) r |= 1 << playable[j];
-    leaves[m] = isOne(normalizedBracket(diag, r)) ? 0 : 1;
+  if (diag.N <= STATE_SUM_MAX) {
+    for (let m = 0; m < total; m++) {
+      let r = fixedMask;
+      for (let j = 0; j < n; j++) if ((m >> j) & 1) r |= 1 << playable[j];
+      leaves[m] = isOne(normalizedBracket(diag, r)) ? 0 : 1;
+    }
+  } else {
+    const b = game.board.map((row) => row.slice());
+    for (let m = 0; m < total; m++) {
+      playable.forEach((i, j) => { const x = diag.crossings[i]; b[x.r][x.c] = (m >> j) & 1 ? 10 : 9; });
+      leaves[m] = isOne(sweepNormalizedBracket(b, diag)) ? 0 : 1;
+    }
   }
   game._leaves = leaves;
   return leaves;
@@ -454,6 +634,60 @@ export function evaluateMoves(game, assign, first) {
   return { mover, moves: out, winnerNow: S.value(assign) ? 'knotter' : 'unknotter' };
 }
 
+// Final classification of an assignment (works for any board size)
+export function classifyAssignment(game, assign) {
+  const b = game.board.map((row) => row.slice());
+  assign.forEach((t, j) => { if (t) { const x = game.diag.crossings[game.playable[j]]; b[x.r][x.c] = t; } });
+  return classifyBoard(b);
+}
+
+// Heuristic AI for boards too large to solve: exact search once few crossings remain, otherwise
+// play for alternation (Knotter) or against it (Unknotter). Reduced alternating diagrams are
+// always knotted, while non-alternating stretches create Reidemeister-removable crossings.
+export function heuristicMove(game, assign, first, rng = Math.random, exactBelow = 3) {
+  const mover = moverOf(assign, first);
+  const open = []; assign.forEach((t, j) => { if (!t) open.push(j); });
+  if (open.length <= exactBelow) {
+    const memo = new Map();
+    const winnerOf = (a) => {
+      const k = a.join(',');
+      if (memo.has(k)) return memo.get(k);
+      let w;
+      if (a.every((x) => x)) { const r = classifyAssignment(game, a); w = r.is_unknot === false ? 'knotter' : 'unknotter'; }
+      else {
+        const m = moverOf(a, first); w = other(m);
+        outer: for (let j = 0; j < a.length; j++) { if (a[j]) continue; for (const t of [9, 10]) { const b = a.slice(); b[j] = t; if (winnerOf(b) === m) { w = m; break outer; } } }
+      }
+      memo.set(k, w); return w;
+    };
+    const wins = [];
+    for (const j of open) for (const tile of [9, 10]) { const b = assign.slice(); b[j] = tile; if (winnerOf(b) === mover) wins.push({ j, tile }); }
+    if (wins.length) { const m = wins[Math.floor(rng() * wins.length)]; return { ...m, crossing: game.playable[m.j], why: 'exact' }; }
+  }
+  const { diag } = game;
+  const tileAt = new Map();
+  diag.crossings.forEach((x, i) => { if (x.tile !== -1) tileAt.set(i, x.tile); });
+  assign.forEach((t, j) => { if (t) tileAt.set(game.playable[j], t); });
+  const P = diag.passages, n2 = P.length;
+  const overAt = (k, tiles) => { const i = P[k].i, t = tiles.get(i); if (t === undefined) return null; return (P[k].dir === 1 || P[k].dir === 3) ? t === 9 : t === 10; };
+  let best = [], bestScore = -Infinity;
+  for (const j of open) for (const tile of [9, 10]) {
+    const i = game.playable[j];
+    const tiles = new Map(tileAt); tiles.set(i, tile);
+    let score = 0;
+    for (const k of [diag.hPass[i], diag.vPass[i]]) for (const nb of [(k + n2 - 1) % n2, (k + 1) % n2]) {
+      const a = overAt(k, tiles), b = overAt(nb, tiles);
+      if (a === null || b === null || P[nb].i === i) continue;
+      score += a !== b ? 1 : -1;
+    }
+    if (mover === 'unknotter') score = -score;
+    score += rng() * 0.01;
+    if (score > bestScore + 1e-9) { bestScore = score; best = [{ j, tile }]; }
+  }
+  const m = best[0];
+  return { ...m, crossing: game.playable[m.j], why: 'heuristic' };
+}
+
 function maskOf(a) { let m = 0; a.forEach((x, j) => { if (x === 10) m |= 1 << j; }); return m; }
 
 export function finalOutcome(game, assign) {
@@ -481,6 +715,7 @@ export function aiMove(game, assign, first, rng = Math.random) {
 export function analyzeShadow(board) {
   const g = createGame(board);
   if (!g.ok) return { ok: false, errors: g.errors };
+  if (!g.solvable) return { ok: false, unsolvable: true, crossings: g.diag.N, playable: g.n, errors: [g.why] };
   const wK = theoreticalWinner(g, 'knotter');
   const wU = theoreticalWinner(g, 'unknotter');
   const leaves = leafTable(g);
@@ -622,6 +857,41 @@ export function randomDenseShadow(size, rng, { minX = 4, maxX = 9, tries = 4000 
   return null;
 }
 
+// Random 12-strand plat shadow padded to size×size (default 25×25).
+export function largePlatShadow(rng, { size = 25, strands = 12, prob = 0.55, minX = 20, maxX = 60, tries = 500 } = {}) {
+  const pairs = []; for (let s = 0; s < strands; s += 2) pairs.push([s, s + 1]);
+  const H = 2 * strands - 1;
+  const blocks = Math.floor((size - 2 - 2) / 3);
+  for (let t = 0; t < tries; t++) {
+    const segs = [];
+    for (let k = 0; k < blocks; k++) {
+      const seg = [];
+      for (let g = (k % 2 === 0 ? 1 : 0); g <= strands - 2; g += 2) if (rng() < prob) seg.push({ gen: g, count: 1 });
+      if (!seg.length) seg.push({ gen: 1 + 2 * Math.floor(rng() * ((strands - 2) / 2)), count: 1 });
+      segs.push(seg);
+    }
+    const core = platShadow(strands, pairs, segs);
+    const d = buildDiagram(core);
+    if (!d.isKnotShadow || d.N < minX || d.N > maxX) continue;
+    const top = Math.floor((size - H) / 2), left = Math.floor((size - core[0].length) / 2);
+    const g = emptyGrid(size, size);
+    core.forEach((row, r) => row.forEach((v, c) => { g[r + top][c + left] = v; }));
+    return g;
+  }
+  return null;
+}
+
+// Keep `open` crossings nearest the board centre unresolved; resolve the rest (seeded random).
+export function openRegion(board, open, rng) {
+  const d = buildDiagram(board);
+  const cr = (board.length - 1) / 2, cc = (board[0].length - 1) / 2;
+  const order = d.crossings.map((x, i) => ({ i, dist: (x.r - cr) ** 2 + (x.c - cc) ** 2 })).sort((a, b) => a.dist - b.dist);
+  const keep = new Set(order.slice(0, open).map((o) => o.i));
+  const b = board.map((r) => r.slice());
+  d.crossings.forEach((x, i) => { b[x.r][x.c] = keep.has(i) ? -1 : (rng() < 0.5 ? 9 : 10); });
+  return b;
+}
+
 // Knot names for reduced alternating diagrams with <= 7 crossings (identified by crossing
 // number and determinant, which is unique in that range).
 const KNOT_NAMES = {
@@ -631,13 +901,14 @@ const KNOT_NAMES = {
 
 export function buildCatalog() {
   const entries = [];
+  let keepFixed = false;
   const add = (id, family, label, board, note = '') => {
     const diag = buildDiagram(board);
     if (!diag.isKnotShadow) return;
     const inv = alternatingInvariants(diag);
     let knot = '';
     if (inv && inv.span === diag.N && diag.N <= 7) knot = KNOT_NAMES[`${diag.N}:${inv.determinant}`] || '';
-    entries.push({ id, family, label, board: toShadow(board), crossings: diag.N, knot, determinant: inv ? inv.determinant : null, reduced: inv ? inv.span === diag.N : false, note, rows: board.length, cols: board[0].length });
+    entries.push({ id, family, label, board: keepFixed ? board : toShadow(board), crossings: diag.N, knot, determinant: inv ? inv.determinant : null, reduced: inv ? inv.span === diag.N : false, note, rows: board.length, cols: board[0].length });
   };
   // controls: shadows whose every resolution is the unknot
   add('kink-1', 'Deceptive unknot', 'Single kink', [[2, 1, 0], [3, -1, 1], [0, 3, 4]], 'Every resolution is the unknot.');
@@ -666,5 +937,19 @@ export function buildCatalog() {
     const g = randomDenseShadow(size, rng, { minX: lo, maxX: hi });
     if (g) add(`dense-rand-${++made}`, 'Dense', `Random dense ${size}×${size} #${made}`, g, 'Seeded random mosaic; may contain reducible crossings.');
   }
+  // 25×25 boards: full shadows (exact solving impossible; heuristic AI, Jones via row sweep) and
+  // "open region" versions where only the 8 central crossings are in play (solved exactly).
+  const rngL = mulberry32(25252525);
+  const bigs = [];
+  for (const [lo, hi, prob] of [[22, 28, 0.5], [30, 36, 0.7], [37, 46, 0.95]]) { const g = largePlatShadow(rngL, { minX: lo, maxX: hi, prob }); if (g) bigs.push(g); }
+  bigs.forEach((g, k) => {
+    const n = buildDiagram(g).N;
+    add(`large-${k + 1}`, 'Large 25×25', `25×25 plat #${k + 1} (${n} crossings)`, g, 'All crossings open: too large for exact solving. Play two-human or against the heuristic AI; the result is classified by the Jones polynomial (row-sweep algorithm).');
+  });
+  keepFixed = true;
+  bigs.forEach((g, k) => {
+    add(`large-${k + 1}-region`, 'Large 25×25', `25×25 plat #${k + 1}, central 8 open`, openRegion(g, 8, rngL), 'Only the 8 crossings nearest the centre are in play; the rest are fixed. Solved exactly.');
+  });
+  keepFixed = false;
   return entries;
 }

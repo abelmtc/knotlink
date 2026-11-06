@@ -6,9 +6,17 @@ from the Kauffman bracket state sum. It returns the same JSON fields as the Sage
 service in the knot_mosaics repo (is_unknot, reason, num_crossings, jones_polynomial), so the
 game server can use either one interchangeably.
 
-Correctness note: a Jones polynomial different from 1 proves the knot is non-trivial, and
-Jones = 1 implies the unknot for every diagram with fewer than 25 crossings (verified by
-Tuzun & Sikora). Boards above MAX_CROSSINGS return is_unknot = None.
+Two algorithms:
+  * small diagrams (<= STATE_SUM_MAX crossings): the Kauffman bracket state sum over 2^n states
+  * larger diagrams, e.g. 25x25 boards: a row sweep (Temperley-Lieb transfer matrix) that walks
+    the mosaic cell by cell and keeps only the planar pairing of strand ends on the frontier, so
+    the cost grows with the number of strands crossing a row instead of with the crossings.
+
+Certification: Jones != 1 proves the knot is non-trivial. Jones = 1 implies the unknot for
+diagrams with fewer than 25 crossings (Tuzun & Sikora). Before deciding, the diagram is
+simplified with Reidemeister I/II moves on its Gauss code; if Jones = 1 but the simplified
+diagram still has >= 25 crossings, the result is is_unknot = None with
+reason "jones_trivial_unverified" (a research candidate) instead of a guess.
 
 Tile convention (same as game_state.py and knot_mosaics/wild_mosaics.py):
   0 empty | 1 left-down | 2 right-down | 3 up-right | 4 left-up | 5 left-right | 6 up-down
@@ -31,7 +39,9 @@ PAIRS = {
 }
 CROSSING_TILES = (-1, 9, 10)
 
-MAX_CROSSINGS = int(os.environ.get("BUILTIN_CLASSIFIER_MAX_CROSSINGS", "16"))
+MAX_CROSSINGS = int(os.environ.get("BUILTIN_CLASSIFIER_MAX_CROSSINGS", "400"))
+STATE_SUM_MAX = 14
+JONES_VERIFIED_BELOW = 25
 
 
 class BoardError(ValueError):
@@ -169,8 +179,10 @@ class _Diagram:
         """Walk the single component; record the direction of travel through each crossing."""
         N, partner = self.N, self.partner
         h_dir, v_dir = [0] * N, [0] * N
+        self.passages = []
         i, d = 0, RIGHT
         for _ in range(2 * N + 2):
+            self.passages.append((i, d))
             if d in (RIGHT, LEFT):
                 h_dir[i] = d
             else:
@@ -228,7 +240,140 @@ def _poly_mul(a: Dict[int, int], b: Dict[int, int]) -> Dict[int, int]:
     return {e: c for e, c in out.items() if c}
 
 
+TRANSPOSE_TILE = {0: 0, 1: 3, 2: 2, 3: 1, 4: 4, 5: 6, 6: 5, 7: 7, 8: 8, 9: 10, 10: 9, -1: -1}
+SMOOTH7 = [(DOWN, LEFT), (UP, RIGHT)]
+SMOOTH8 = [(DOWN, RIGHT), (LEFT, UP)]
+
+
+def _sweep_width(board) -> int:
+    return max((sum(1 for t in row if _goes(t, DOWN)) for row in board), default=0)
+
+
+def _sweep_bracket(board) -> Dict[int, int]:
+    """<D> by a row-major sweep. States: tuple of frontier partners (-1 = no strand end)."""
+    R, C = len(board), len(board[0])
+    states: Dict[tuple, Dict[int, int]] = {tuple([-1] * (C + 1)): {0: 1}}
+    for r in range(R):
+        for c in range(C):
+            t = board[r][c]
+            if t in (0, 5, 6):          # these never change the frontier
+                continue
+            if t == 9:
+                options = [(SMOOTH8, 1), (SMOOTH7, -1)]
+            elif t == 10:
+                options = [(SMOOTH7, 1), (SMOOTH8, -1)]
+            else:
+                options = [(PAIRS[t], 0)]
+            ext = {UP: c, LEFT: C, DOWN: C + 1, RIGHT: C + 2}
+            nxt: Dict[tuple, Dict[int, int]] = {}
+            for p, poly in states.items():
+                for pairs, w in options:
+                    parent = list(range(C + 3))
+
+                    def find(x):
+                        while parent[x] != x:
+                            parent[x] = parent[parent[x]]
+                            x = parent[x]
+                        return x
+
+                    for i in range(C + 1):
+                        if p[i] > i:
+                            parent[find(i)] = find(p[i])
+                    uses = set()
+                    for a, b in pairs:
+                        uses.update((a, b))
+                        x, y = find(ext[a]), find(ext[b])
+                        if x != y:
+                            parent[x] = y
+                    ends = [i for i in range(C + 1) if i not in (c, C) and p[i] >= 0]
+                    if DOWN in uses:
+                        ends.append(C + 1)
+                    if RIGHT in uses:
+                        ends.append(C + 2)
+                    slot = lambda n: c if n == C + 1 else C if n == C + 2 else n
+                    np_ = [-1] * (C + 1)
+                    first: Dict[int, int] = {}
+                    for e in ends:
+                        root = find(e)
+                        if root in first:
+                            o = first[root]
+                            np_[slot(o)], np_[slot(e)] = slot(e), slot(o)
+                        else:
+                            first[root] = e
+                    loops = len({find(x) for x in (c, C) if p[x] >= 0} - set(first))
+                    q = {e + w: v for e, v in poly.items()}
+                    for _ in range(loops):
+                        q = _poly_mul(q, {2: -1, -2: -1})
+                    tgt = nxt.setdefault(tuple(np_), {})
+                    for e, v in q.items():
+                        tgt[e] = tgt.get(e, 0) + v
+            states = {k: {e: v for e, v in poly.items() if v} for k, poly in nxt.items()}
+    if len(states) != 1 or any(x != -1 for x in next(iter(states))):
+        raise BoardError("sweep did not close up")
+    P = next(iter(states.values()))
+    # P = d * <D>, with d = -A^-2 (A^4 + 1): divide exactly
+    lo, hi = min(P) + 2, max(P) + 2
+    r = {e + 2: -v for e, v in P.items()}
+    q: Dict[int, int] = {}
+    for e in range(hi, lo + 3, -1):
+        v = r.get(e, 0)
+        if v:
+            q[e - 4] = v
+            r[e] = 0
+            r[e - 4] = r.get(e - 4, 0) - v
+    if any(r.values()):
+        raise BoardError("bracket not divisible by the loop value")
+    return {e: v for e, v in q.items() if v}
+
+
+def reduced_crossing_count(diag: "_Diagram") -> int:
+    """Crossings left after Reidemeister I (kinks) and II (removable bigons) on the Gauss code."""
+    b = diag.board
+    seq = []
+    for i, d in diag.passages:
+        r, c = diag.crossings[i]
+        seq.append((i, (b[r][c] == 9) if d in (RIGHT, LEFT) else (b[r][c] == 10)))
+    changed = True
+    while changed and seq:
+        changed = False
+        n = len(seq)
+        for k in range(n):
+            if seq[k][0] == seq[(k + 1) % n][0]:
+                gone = seq[k][0]
+                seq = [x for x in seq if x[0] != gone]
+                changed = True
+                break
+        if changed:
+            continue
+        for k in range(n):
+            (a, oa), (bb, ob) = seq[k], seq[(k + 1) % n]
+            if a == bb or oa != ob:
+                continue
+            ka = next(idx for idx, x in enumerate(seq) if x[0] == a and idx != k)
+            kb = next(idx for idx, x in enumerate(seq) if x[0] == bb and idx != (k + 1) % n)
+            if abs(ka - kb) in (1, n - 1):
+                seq = [x for x in seq if x[0] not in (a, bb)]
+                changed = True
+                break
+    return len(seq) // 2
+
+
 def normalized_bracket(diag: _Diagram) -> Dict[int, int]:
+    """f(A) = (-A^3)^(-w) <D>; state sum for small diagrams, row sweep for large ones."""
+    if diag.N > STATE_SUM_MAX:
+        board = diag.board
+        T = [[TRANSPOSE_TILE[board[r][c]] for r in range(len(board))] for c in range(len(board[0]))]
+        if _sweep_width(T) < _sweep_width(board):
+            br = {-e: v for e, v in _sweep_bracket(T).items()}   # transpose = mirror image
+        else:
+            br = _sweep_bracket(board)
+        w = sum(-diag.sign9[i] if board[r][c] == 10 else diag.sign9[i] for i, (r, c) in enumerate(diag.crossings))
+        sign = -1 if w % 2 else 1
+        return {e - 3 * w: sign * v for e, v in br.items()}
+    return _state_sum_normalized_bracket(diag)
+
+
+def _state_sum_normalized_bracket(diag: _Diagram) -> Dict[int, int]:
     """f(A) = (-A^3)^(-w) <D>, as {exponent of A: coefficient}.
 
     The A-smoothing of tile 9 is the 'type 8' pairing and of tile 10 the 'type 7' pairing, so
@@ -295,5 +440,16 @@ def classify_mosaic(board: List[List[int]], max_crossings: Optional[int] = None)
         return {**base, "is_unknot": None, "reason": "too_many_crossings", "gauss_code": None,
                 "error": f"Built-in classifier handles up to {limit} crossings"}
     f = normalized_bracket(diag)
-    return {**base, "is_unknot": f == {0: 1}, "reason": "jones_polynomial", "gauss_code": None,
-            "jones_polynomial": _format_jones(f)}
+    reduced = reduced_crossing_count(diag)
+    base.update({"jones_polynomial": _format_jones(f), "reduced_crossings": reduced, "gauss_code": None,
+                 "method": "state_sum" if diag.N <= STATE_SUM_MAX else "row_sweep"})
+    if f != {0: 1}:
+        return {**base, "is_unknot": False, "reason": "jones_polynomial", "certified": True,
+                "certified_by": "jones_not_one"}
+    if diag.N < JONES_VERIFIED_BELOW or reduced < JONES_VERIFIED_BELOW:
+        return {**base, "is_unknot": True, "certified": True, "reason": "jones_polynomial",
+                "certified_by": "reidemeister" if reduced == 0 else "jones_below_25"}
+    # Jones = 1 on a diagram that stays >= 25 crossings: unknot unless it is a counterexample
+    # to the Jones unknot conjecture, so flag it instead of guessing.
+    return {**base, "is_unknot": None, "certified": False, "research_candidate": True,
+            "reason": "jones_trivial_unverified"}

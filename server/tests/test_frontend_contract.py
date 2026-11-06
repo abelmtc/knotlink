@@ -125,5 +125,77 @@ class BuiltinClassifierTest(unittest.TestCase):
         self.assertEqual(knotted, 2)
 
 
+# A 25x25 knot shadow (12-strand plat, 31 crossings) from the prototype's generator
+BOARD_25 = [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 2, 5, 5, 5, 5, 1, 2, 5, 5, 5, 5, 1, 2, 5, 5, 5, 5, 1, 2, 5, 5, 5, 1, 0],
+    [0, 6, 0, 0, 0, 2, -1, 4, 0, 0, 0, 2, -1, 4, 0, 0, 0, 2, -1, 4, 0, 0, 0, 6, 0],
+    [0, 3, 5, 1, 2, 4, 3, 5, 5, 1, 2, 4, 3, 5, 5, 1, 2, 4, 3, 5, 5, 5, 5, 4, 0],
+    [0, 0, 2, -1, 4, 0, 0, 0, 2, -1, 4, 0, 0, 0, 2, -1, 4, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 2, 4, 3, 5, 5, 1, 2, 4, 3, 5, 5, 1, 2, 4, 3, 5, 5, 1, 2, 5, 5, 5, 1, 0],
+    [0, 6, 0, 0, 0, 2, -1, 4, 0, 0, 0, 2, -1, 4, 0, 0, 0, 2, -1, 4, 0, 0, 0, 6, 0],
+    [0, 3, 5, 1, 2, 4, 3, 5, 5, 1, 2, 4, 3, 5, 5, 5, 5, 4, 3, 5, 5, 1, 2, 4, 0],
+    [0, 0, 2, -1, 4, 0, 0, 0, 2, -1, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, -1, 4, 0, 0],
+    [0, 2, 4, 3, 5, 5, 1, 2, 4, 3, 5, 5, 1, 2, 5, 5, 5, 5, 1, 2, 4, 3, 5, 1, 0],
+    [0, 6, 0, 0, 0, 2, -1, 4, 0, 0, 0, 2, -1, 4, 0, 0, 0, 2, -1, 4, 0, 0, 0, 6, 0],
+    [0, 3, 5, 1, 2, 4, 3, 5, 5, 1, 2, 4, 3, 5, 5, 1, 2, 4, 3, 5, 5, 1, 2, 4, 0],
+    [0, 0, 2, -1, 4, 0, 0, 0, 2, -1, 4, 0, 0, 0, 2, -1, 4, 0, 0, 0, 2, -1, 4, 0, 0],
+    [0, 2, 4, 3, 5, 5, 5, 5, 4, 3, 5, 5, 1, 2, 4, 3, 5, 5, 1, 2, 4, 3, 5, 1, 0],
+    [0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, -1, 4, 0, 0, 0, 2, -1, 4, 0, 0, 0, 6, 0],
+    [0, 3, 5, 5, 5, 5, 5, 5, 5, 1, 2, 4, 3, 5, 5, 1, 2, 4, 3, 5, 5, 5, 5, 4, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 2, -1, 4, 0, 0, 0, 2, -1, 4, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 2, 5, 5, 5, 5, 5, 5, 4, 3, 5, 5, 1, 2, 4, 3, 5, 5, 1, 2, 5, 5, 5, 1, 0],
+    [0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, -1, 4, 0, 0, 0, 2, -1, 4, 0, 0, 0, 6, 0],
+    [0, 3, 5, 1, 2, 5, 5, 5, 5, 1, 2, 4, 3, 5, 5, 5, 5, 4, 3, 5, 5, 1, 2, 4, 0],
+    [0, 0, 2, -1, 4, 0, 0, 0, 2, -1, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, -1, 4, 0, 0],
+    [0, 2, 4, 3, 5, 5, 1, 2, 4, 3, 5, 5, 1, 2, 5, 5, 5, 5, 1, 2, 4, 3, 5, 1, 0],
+    [0, 6, 0, 0, 0, 2, -1, 4, 0, 0, 0, 2, -1, 4, 0, 0, 0, 2, -1, 4, 0, 0, 0, 6, 0],
+    [0, 3, 5, 5, 5, 4, 3, 5, 5, 5, 5, 4, 3, 5, 5, 5, 5, 4, 3, 5, 5, 5, 5, 4, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+]
+
+
+class LargeBoardTest(unittest.TestCase):
+    def setUp(self):
+        server.app.testing = True
+        server.CLASSIFIER_MODE = "builtin"
+        self.c = server.app.test_client()
+
+    def test_25x25_game_through_the_api(self):
+        r = self.c.post("/api/game/new", json={"board": BOARD_25, "starting_player": "knotter"})
+        self.assertEqual(r.status_code, 201, r.get_json())
+        gid = r.get_json()["game_id"]
+        status = r.get_json()["status"]
+        self.assertEqual((status["rows"], status["cols"]), (25, 25))
+        self.assertEqual(status["unresolved_count"], 31)
+        for k, (row, col) in enumerate(status["unresolved_positions"]):
+            r = self.c.post(f"/api/game/{gid}/move", json={"row": row, "col": col, "new_tile": 9 if k % 3 else 10})
+            self.assertEqual(r.status_code, 200, r.get_json())
+        t0 = time.time()
+        r = self.c.post(f"/api/game/{gid}/classify")
+        self.assertLess(time.time() - t0, 10)
+        data = r.get_json()
+        self.assertEqual(r.status_code, 200, data)
+        cls = data["classification"]
+        self.assertEqual(cls["num_crossings"], 31)
+        self.assertEqual(cls["method"], "row_sweep")
+        self.assertIn(cls["is_unknot"], (True, False))
+        self.assertEqual(data["winner"], "unknotter" if cls["is_unknot"] else "knotter")
+
+    def test_25x25_row_sweep_matches_known_alternating_invariants(self):
+        from knot_classifier import classify_mosaic, _Diagram
+        # alternating resolution of a reduced-ish alternating diagram must be knotted
+        d = _Diagram(BOARD_25)
+        board = [row[:] for row in BOARD_25]
+        # resolve by alternating along the traversal
+        for k, (i, direction) in enumerate(d.passages):
+            r, c = d.crossings[i]
+            if direction in (1, 3):
+                board[r][c] = 9 if k % 2 == 0 else 10
+        res = classify_mosaic(board)
+        self.assertFalse(res["is_unknot"])
+        self.assertTrue(res["certified"])
+
+
 if __name__ == "__main__":
     unittest.main()

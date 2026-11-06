@@ -5,6 +5,28 @@ using `VITE_API_URL` (default `http://localhost:5000/api`). The backend classifi
 with the SageMath service from `knot_mosaics` when it is reachable, and otherwise with the built-in
 pure-Python Jones-polynomial classifier (`server/knot_classifier.py`). MongoDB is optional.
 
+## Board sizes up to 25×25
+
+The built-in classifier computes the Jones polynomial with a row sweep (a Temperley–Lieb
+transfer matrix over the mosaic), so its cost depends on how many strands cross a row, not on the
+crossing count. A 25×25 board with 30–40 crossings classifies in well under a second. (The Sage
+service stops at 22 crossings and assumes square boards; in `auto` mode the server falls back to
+the built-in classifier for those boards.)
+
+Certification: Jones ≠ 1 proves the result is knotted. For Jones = 1, the diagram is simplified
+with Reidemeister I/II moves first, and the unknot is reported only when fewer than 25 crossings
+remain (Jones = 1 ⇒ unknot is proven below 25 crossings). Otherwise the response has
+`is_unknot: null` and `reason: "jones_trivial_unverified"`, a research candidate for the Jones
+unknot conjecture. The response also includes `reduced_crossings`, `method` and `certified_by`.
+
+The Mosaic Maker now goes up to 25×25 (Export → paste into the game's “Load custom board”).
+
+## Interactive prototype (GitHub Pages)
+
+`docs/index.html` is a self-contained page (knot catalog including 25×25 boards, exact
+perfect-play solver, AI opponent, first-mover atlas, 3D view). Open it locally, or publish it via
+**Settings → Pages → Deploy from a branch → (this branch) → `/docs`**. Its source is in `prototype/`.
+
 ## 1. Local development (no Docker, no Sage, no MongoDB needed)
 
 ```bash
@@ -59,6 +81,6 @@ push this branch to a **private** repository rather than the public `knotlink` r
 |---|---|---|
 | `CLASSIFIER_MODE` | `auto` | `auto`: Sage service if reachable, else built-in · `sage`: Sage only (previous behavior) · `builtin`: never call Sage |
 | `CLASSIFIER_URL` | `http://localhost:5001/api/classify` | Sage classifier endpoint |
-| `BUILTIN_CLASSIFIER_MAX_CROSSINGS` | `16` | Above this, the built-in classifier returns `is_unknot: null` |
+| `BUILTIN_CLASSIFIER_MAX_CROSSINGS` | `400` | Above this, the built-in classifier returns `is_unknot: null` |
 | `MONGODB_URI` / `MONGODB_DB` | `mongodb://localhost:27017/` / `knotlink` | Result storage (optional) |
 | `MONGODB_TIMEOUT_MS` | `2000` | Fail fast when MongoDB is down, instead of hanging requests for 30 s |

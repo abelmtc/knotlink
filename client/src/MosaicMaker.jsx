@@ -3,7 +3,7 @@ import './index.css';
 import KnotGrid from './components/KnotGrid';
 import BoardLayout, { Panel, Field, Segmented } from './components/BoardLayout';
 
-const sizes = Array.from({ length: 20 }, (_, i) => i + 1);
+const sizes = Array.from({ length: 25 }, (_, i) => i + 1);
 
 function SizeSelect({ id, value, onChange }) {
   return (
@@ -60,7 +60,7 @@ function MosaicMaker() {
   return (
     <BoardLayout
       title='Mosaic Maker'
-      subtitle='Build a knot mosaic tile by tile, up to 20 × 20.'
+      subtitle='Build a knot mosaic tile by tile, up to 25 × 25.'
       board={
         <KnotGrid rows={rows} cols={cols} resetSignal={resetSignal} assembleSignal={assembleSignal}
                   setCols={setCols} setRows={setRows} importSignal={importSignal} exportSignal={exportSignal} />
